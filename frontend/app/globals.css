@@ -1,0 +1,173 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==============================================================================
+   LIGHT THEME TOKENS (Warm Technical Dossier)
+   ============================================================================== */
+:root {
+  --bg-page: #F6F1E7;
+  --bg-surface: #FAF6EE;
+  --bg-surface-lowest: #FFFFFF;
+  --bg-surface-low: #F8F3E9;
+  --bg-surface-container: #F2EDE3;
+  --bg-surface-high: #EDE8DE;
+  --bg-surface-highest: #E7E2D8;
+
+  --text-primary: #181C22;
+  --text-muted: #5A6578; /* Contrast > 5.5:1 */
+
+  --border-default: #DFD5C4;
+  --border-subtle: #E4DDD1;
+  --border-strong: #DCD3C4;
+
+  /* Semantic Accents */
+  --accent-lime: #84CC16;
+  --accent-lime-hover: #72B313;
+  --accent-lime-contrast: #1C2024;
+  --accent-lime-subtle: rgba(132, 204, 22, 0.12);
+  --accent-lime-border: rgba(132, 204, 22, 0.35);
+
+  --accent-cyan: #0891B2;
+  --accent-cyan-subtle: rgba(8, 145, 178, 0.08);
+  --accent-cyan-border: rgba(8, 145, 178, 0.25);
+
+  --accent-amber: #B45309;
+  --accent-amber-subtle: rgba(180, 83, 9, 0.08);
+  --accent-amber-border: rgba(180, 83, 9, 0.25);
+
+  --accent-emerald: #059669;
+  --accent-emerald-subtle: rgba(5, 150, 105, 0.08);
+  --accent-emerald-border: rgba(5, 150, 105, 0.25);
+
+  --accent-crimson: #DC2626;
+  --accent-crimson-subtle: rgba(220, 38, 38, 0.08);
+  --accent-crimson-border: rgba(220, 38, 38, 0.25);
+}
+
+/* ==============================================================================
+   DARK THEME TOKENS (Modern HUD & Technical Brutalism)
+   ============================================================================== */
+.dark {
+  --bg-page: #0E1116;
+  --bg-surface: #161B22;
+  --bg-surface-lowest: #0B0E13;
+  --bg-surface-low: #191C21;
+  --bg-surface-container: #1D242D;
+  --bg-surface-high: #272A30;
+  --bg-surface-highest: #32353A;
+
+  --text-primary: #F0F6FC;
+  --text-muted: #8B949E; /* Contrast > 6.5:1 */
+
+  --border-default: #2A323C;
+  --border-subtle: #242B35;
+  --border-strong: #384454;
+
+  /* Semantic Accents (Dark Mode) */
+  --accent-lime: #C6F432;
+  --accent-lime-hover: #D4F858;
+  --accent-lime-contrast: #0E1116;
+  --accent-lime-subtle: rgba(198, 244, 50, 0.12);
+  --accent-lime-border: rgba(198, 244, 50, 0.35);
+
+  --accent-cyan: #22D3EE;
+  --accent-cyan-subtle: rgba(34, 211, 238, 0.10);
+  --accent-cyan-border: rgba(34, 211, 238, 0.30);
+
+  --accent-amber: #F59E0B;
+  --accent-amber-subtle: rgba(245, 158, 11, 0.10);
+  --accent-amber-border: rgba(245, 158, 11, 0.30);
+
+  --accent-emerald: #10B981;
+  --accent-emerald-subtle: rgba(16, 185, 129, 0.12);
+  --accent-emerald-border: rgba(16, 185, 129, 0.35);
+
+  --accent-crimson: #FFB4AB;
+  --accent-crimson-subtle: rgba(147, 0, 10, 0.20);
+  --accent-crimson-border: rgba(255, 180, 171, 0.35);
+}
+
+/* ==============================================================================
+   BASE DOCUMENT & OVERFLOW DEFAULTS
+   ============================================================================== */
+html, body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  font-family: var(--font-body), 'IBM Plex Sans', -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}
+
+/* Shimmer animation for loading states */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--bg-surface-low) 25%,
+    var(--bg-surface) 50%,
+    var(--bg-surface-low) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Caret blinking for streaming text */
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.streaming-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 15px;
+  margin-left: 2px;
+  background-color: var(--accent-lime);
+  vertical-align: middle;
+  animation: cursor-blink 0.8s infinite;
+}
+
+/* Pulse ring animation strictly active while agent is working */
+@keyframes status-pulse-ring {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(132, 204, 22, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(132, 204, 22, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(132, 204, 22, 0); }
+}
+
+.animate-agent-pulse {
+  animation: status-pulse-ring 1.6s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

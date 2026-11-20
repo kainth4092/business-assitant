@@ -1,0 +1,248 @@
+{
+  "name": "projects/16089620894539968109",
+  "title": "Live Agent Business Assistant",
+  "visibility": "PRIVATE",
+  "createTime": "2026-11-20T07:03:51.631100Z",
+  "updateTime": "2026-11-20T07:19:06.435089Z",
+  "projectType": "TEXT_TO_UI_PRO",
+  "thumbnailScreenshot": {
+    "name": "projects/16089620894539968109/screens/97a9442c557743ec93e21836ce0c7a39/fileEntries/screenshot",
+    "downloadUrl": "https://lh3.googleusercontent.com/aida/ALJJyrCJDHhOFaSnsosPMRAsGTwUUr64k3eFtjv44pgzgwskqUvkrdDYxhJ-s89b6k3BP4Yll0B4CSihxAOjDMF86ZS2cWJPQ9H7XxggMiKFSXQVEKEv92Vy-rSk4dE2JeG-R47jY8eOOiJxS72Wa9KqeEvBXtpoYc3s-wh6pEnarlx-ZijU5XrjGgslOiMXgr3NfY7K8P75ZJsguJk99lsLGgspU7YVh3_urn3j7cSL1TlwdQ"
+  },
+  "origin": "WEB",
+  "deviceType": "DESKTOP",
+  "designTheme": {
+    "colorMode": "DARK",
+    "font": "SPACE_GROTESK",
+    "roundness": "ROUND_EIGHT",
+    "customColor": "#c6f432",
+    "headlineFont": "SPACE_GROTESK",
+    "bodyFont": "IBM_PLEX_SANS",
+    "labelFont": "JETBRAINS_MONO",
+    "namedColors": {
+      "outline_variant": "#444934",
+      "on_primary": "#283500",
+      "on_surface": "#e1e2e9",
+      "surface": "#111319",
+      "on_surface_variant": "#c4c9ae",
+      "secondary_fixed": "#a2eeff",
+      "on_error": "#690005",
+      "surface_container_low": "#191c21",
+      "on_tertiary_fixed_variant": "#653e00",
+      "on_secondary_container": "#00515d",
+      "outline": "#8e937a",
+      "on_tertiary": "#472a00",
+      "on_error_container": "#ffdad6",
+      "on_tertiary_container": "#8d5900",
+      "primary_fixed_dim": "#aad600",
+      "primary_fixed": "#c5f331",
+      "on_secondary_fixed_variant": "#004e5a",
+      "surface_dim": "#111319",
+      "error": "#ffb4ab",
+      "surface_variant": "#32353a",
+      "surface_tint": "#aad600",
+      "error_container": "#93000a",
+      "inverse_on_surface": "#2e3036",
+      "on_secondary": "#00363e",
+      "on_primary_fixed_variant": "#3b4d00",
+      "secondary": "#5de6ff",
+      "tertiary_container": "#ffddb8",
+      "inverse_surface": "#e1e2e9",
+      "on_primary_fixed": "#161f00",
+      "on_primary_container": "#556d00",
+      "surface_container": "#1d2025",
+      "on_background": "#e1e2e9",
+      "tertiary_fixed": "#ffddb8",
+      "primary_container": "#c5f331",
+      "secondary_fixed_dim": "#2fd9f4",
+      "tertiary": "#ffffff",
+      "surface_container_highest": "#32353a",
+      "secondary_container": "#00cbe6",
+      "tertiary_fixed_dim": "#ffb95f",
+      "surface_bright": "#36393f",
+      "primary": "#ffffff",
+      "surface_container_lowest": "#0b0e13",
+      "inverse_primary": "#506600",
+      "surface_container_high": "#272a30",
+      "background": "#111319",
+      "on_tertiary_fixed": "#2a1700",
+      "on_secondary_fixed": "#001f25"
+    },
+    "designMd": "---\nname: Telemetry Precision Engine\ncolors:\n  surface: '#111319'\n  surface-dim: '#111319'\n  surface-bright: '#36393f'\n  surface-container-lowest: '#0b0e13'\n  surface-container-low: '#191c21'\n  surface-container: '#1d2025'\n  surface-container-high: '#272a30'\n  surface-container-highest: '#32353a'\n  on-surface: '#e1e2e9'\n  on-surface-variant: '#c4c9ae'\n  inverse-surface: '#e1e2e9'\n  inverse-on-surface: '#2e3036'\n  outline: '#8e937a'\n  outline-variant: '#444934'\n  surface-tint: '#aad600'\n  primary: '#ffffff'\n  on-primary: '#283500'\n  primary-container: '#c5f331'\n  on-primary-container: '#556d00'\n  inverse-primary: '#506600'\n  secondary: '#5de6ff'\n  on-secondary: '#00363e'\n  secondary-container: '#00cbe6'\n  on-secondary-container: '#00515d'\n  tertiary: '#ffffff'\n  on-tertiary: '#472a00'\n  tertiary-container: '#ffddb8'\n  on-tertiary-container: '#8d5900'\n  error: '#ffb4ab'\n  on-error: '#690005'\n  error-container: '#93000a'\n  on-error-container: '#ffdad6'\n  primary-fixed: '#c5f331'\n  primary-fixed-dim: '#aad600'\n  on-primary-fixed: '#161f00'\n  on-primary-fixed-variant: '#3b4d00'\n  secondary-fixed: '#a2eeff'\n  secondary-fixed-dim: '#2fd9f4'\n  on-secondary-fixed: '#001f25'\n  on-secondary-fixed-variant: '#004e5a'\n  tertiary-fixed: '#ffddb8'\n  tertiary-fixed-dim: '#ffb95f'\n  on-tertiary-fixed: '#2a1700'\n  on-tertiary-fixed-variant: '#653e00'\n  background: '#111319'\n  on-background: '#e1e2e9'\n  surface-variant: '#32353a'\ntypography:\n  headline-xl:\n    fontFamily: Space Grotesk\n    fontSize: 32px\n    fontWeight: '700'\n    lineHeight: 40px\n    letterSpacing: -0.02em\n  headline-xl-mobile:\n    fontFamily: Space Grotesk\n    fontSize: 24px\n    fontWeight: '700'\n    lineHeight: 32px\n    letterSpacing: -0.01em\n  headline-lg:\n    fontFamily: Space Grotesk\n    fontSize: 24px\n    fontWeight: '600'\n    lineHeight: 32px\n    letterSpacing: -0.015em\n  headline-lg-mobile:\n    fontFamily: Space Grotesk\n    fontSize: 20px\n    fontWeight: '600'\n    lineHeight: 28px\n    letterSpacing: -0.01em\n  headline-md:\n    fontFamily: Space Grotesk\n    fontSize: 18px\n    fontWeight: '600'\n    lineHeight: 24px\n    letterSpacing: -0.01em\n  body-lg:\n    fontFamily: IBM Plex Sans\n    fontSize: 15px\n    fontWeight: '400'\n    lineHeight: 22px\n  body-md:\n    fontFamily: IBM Plex Sans\n    fontSize: 13px\n    fontWeight: '400'\n    lineHeight: 18px\n  body-sm:\n    fontFamily: IBM Plex Sans\n    fontSize: 12px\n    fontWeight: '400'\n    lineHeight: 16px\n  code-lg:\n    fontFamily: JetBrains Mono\n    fontSize: 14px\n    fontWeight: '500'\n    lineHeight: 20px\n  code-md:\n    fontFamily: JetBrains Mono\n    fontSize: 12px\n    fontWeight: '400'\n    lineHeight: 18px\n  label-telemetry:\n    fontFamily: JetBrains Mono\n    fontSize: 11px\n    fontWeight: '500'\n    lineHeight: 14px\n    letterSpacing: 0.06em\n  metric-display:\n    fontFamily: JetBrains Mono\n    fontSize: 28px\n    fontWeight: '700'\n    lineHeight: 32px\n    letterSpacing: -0.03em\nrounded:\n  sm: 0.25rem\n  DEFAULT: 0.5rem\n  md: 0.75rem\n  lg: 1rem\n  xl: 1.5rem\n  full: 9999px\nspacing:\n  gutter: 1rem\n  gutter-desktop: 1rem\n  gutter-mobile: 0.5rem\n  margin: 1rem\n  margin-desktop: 1.5rem\n  margin-mobile: 0.75rem\n  space-xs: 0.25rem\n  space-sm: 0.5rem\n  space-md: 0.75rem\n  space-lg: 1rem\n  space-xl: 1.5rem\n---\n\n## Brand & Style\n\nThe design system establishes a mission-critical, telemetry-driven operating environment for high-throughput enterprise intelligence. Tailored for analytics engineers, enterprise operators, and system architects, it channels the aesthetic of aerospace control consoles and high-frequency trading terminals. The UI evokes clinical command, absolute reliability, and rapid legibility under cognitive load. \n\nThe stylistic framework blends **Technical Brutalism** with **Modern HUD Functionalism**:\n- **Zero Decorative Frivolity:** Pure opacity layers, crisp 1px structural framing, and deliberate absence of frosted glass, soft blurred blobs, or faux-physical skeuomorphism.\n- **Strict Semantic Color Attribution:** Color is never ornamental; every chromatic frequency represents a deterministic processing state or data pipeline.\n- **Monospaced Utility:** Metrics, logs, and telemetry are rendered in monospaced tabular layouts to ensure absolute visual parity across updating values.\n- **Graphic Directness:** Icons are sharp, geometric, and strictly vector-line based (1.5px stroke weight). Emojis and organic illustrations are strictly prohibited across all surfaces.\n\n## Colors\n\nThe interface strictly operates in a **dark-first** paradigm. High-contrast functional accents puncture a tiered foundation of deep graphite and carbon surfaces, allowing operators to diagnose active stream pipelines instantaneously.\n\n### Base Structural Palette\n- **Canvas Base (`#0E1116`):** The primary view layer and void space. All secondary windows and telemetry slots float within this bedrock.\n- **Surface Elevation 1 (`#161B22`):** Primary structural panels, persistent navigation docks, and module wrappers.\n- **Surface Elevation 2 (`#1D242D`):** Active interactive cards, table rows on hover, active inspector drawers, and nested utility modules.\n- **Subtle Surface Highlight (`#222B36`):** Input field fills and pressed button backgrounds.\n- **Border / Hairline Grid (`#2A323C`):** Strict 1px division token for panels, table cells, and module headers.\n\n### Semantic Telemetry Palette\n- **Electric Lime (`#C6F432`):** Dedicated exclusively to primary system triggers, active agent work loops, and pulsating operational execution status. Never use for static informational badges.\n- **Signal Cyan (`#22D3EE`):** Data operations, SQL execution, schema graphs, vector embeddings, and database telemetry.\n- **Warm Amber (`#F59E0B`):** Document RAG queries, semantic corpus retrieval, chunk indexing, and context buffer warnings.\n- **Mint Green (`#34D399`):** Completed states, validated syntaxes, healthy network streams, and consensus resolution.\n- **Coral Red (`#F87171`):** Execution deadlocks, model hallucination flags, rate-limit throttles, and downstream service failures.\n\n### Text & Icon Luminescence\n- **Primary Text (`#F0F6FC`):** Active telemetry readouts, table headers, and primary metrics (96% luminance).\n- **Muted Text (`#8B949E`):** Field labels, secondary parameters, timestamps, and architectural guides.\n- **Subtle Text (`#484F58`):** Disabled telemetry states, line numbers, and grid indexing.\n\n## Typography\n\nThe type system is split into three deliberate functional roles:\n\n1. **Space Grotesk (Structural Wayfinding):** Modern geometric grotesk reserved for operational zone titles, primary panel headings, and core system states. It provides an authoritative, industrial posture without drifting into sci-fi novelty.\n2. **IBM Plex Sans (Operator UI & Assistant Prose):** Crisp, humanist-engineered corporate readability designed specifically for high-density screens. Used for multi-line agent explanations, documentation blocks, system messages, and modal content.\n3. **JetBrains Mono (Telemetry, Syntax & Data Grid):** Zero-ambiguity monospaced engine. All numbers, execution timings (`ms`), memory counters, token burn rates, SQL keywords, and pipeline status tags must render in this typeface to prevent tabular shift and facilitate rapid visual scanning.\n\nUppercase treatments must strictly use `label-telemetry` paired with positive letter spacing (`0.06em`) for categorical indicators, table headers, and subsystem identifiers.\n\n## Layout & Spacing\n\nThe layout model is governed by a **fixed-gutter operational grid system** engineered for zero wasted space and maximum information density.\n\n- **Grid System:** 12-column variable flex grid on desktop (1440px+), adapting to 6-column on mid-tier consoles (768px - 1439px), and 2-column or stacked single-column on mobile viewport environments (<= 767px).\n- **Dense Modularity:** Columns do not use wide breathing room. Default gutters sit strictly at `1rem` (16px) to maximize real-time graph and code panel display area.\n- **Rhythm & Alignment:** Spacing adheres strictly to a 4px sub-grid with foundational tokens at 4px (`space-xs`), 8px (`space-sm`), 12px (`space-md`), 16px (`space-lg`), and 24px (`space-xl`).\n- **Telemetry Docking:** Side rails for query pipelines, context windows, and real-time logs lock to fixed widths (`320px` or `420px`), while main data canvases span the remaining horizontal viewport.\n\n## Elevation & Depth\n\nVisual depth is achieved exclusively through **tonal sequencing** and **crisp 1px boundary lines**. Shadows and blurred optics are explicitly banned from the visual language to maintain military-spec fidelity and eliminate rendering lag on real-time stream graphs.\n\n- **Base Layer:** The viewport root sits at `#0E1116`.\n- **Level 1 (Structural Paneling):** Pinned panels, control bays, and stream feeds rise to `#161B22` bounded by a 1px border of `#2A323C`.\n- **Level 2 (Active Cards & Floating Inspectors):** Modular blocks, table active states, and query inspectors rise to `#1D242D` with an identical 1px `#2A323C` perimeter.\n- **Overlay Level (Context Sheets & Command Bar):** Surfaces float at `#1D242D` framed by a higher-contrast 1px perimeter of `#384454`. No drop shadows; surface priority is declared strictly through hairline border illumination.\n- **Active State Illumination:** Selected or active execution tiles shift their border color from neutral `#2A323C` directly to the semantic accent (`#C6F432` for active jobs, `#22D3EE` for SQL inspector focus).\n\n## Shapes\n\nThe design system enforces a calibrated balance between technical angularity and contemporary usability:\n- Standard elements (buttons, inputs, status pills, panel tags) use an exact **8px radius (`0.5rem`)**.\n- Larger module frames, modals, and telemetry dashboard cards use a **12px radius (`rounded-lg` / `0.75rem`)**.\n- Roundedness never extends into organic capsules or full pill configurations (`rounded-full` is restricted solely to live status pulse pips of 6px by 6px dimension).\n- Elements never resolve to 0px sharp corners, preventing an outdated terminal feel while keeping edges crisp, industrial, and structured.\n\n## Components\n\n### 1. Primary Action & Execution Triggers\n- **Primary Live Action (Electric Lime):** Background `#C6F432`, foreground `#0E1116`, typography `Space Grotesk` 600 weight. Used strictly for \"Execute Query\", \"Deploy Agent\", and active run commands. Hover: `#D4F858`. Active: `#B6E625`.\n- **Secondary Console Action:** Background `#1D242D`, 1px border `#2A323C`, foreground `#F0F6FC`. Hover: border `#484F58`, background `#222B36`.\n\n### 2. Telemetry Status Chips & Badges\n- **Architecture:** Compact 20px height, 6px horizontal padding, 4px corner radius. Typographic foundation: `label-telemetry` (JetBrains Mono).\n- **SQL / Data Badge:** Surface `rgba(34, 211, 238, 0.1)`, 1px border `rgba(34, 211, 238, 0.3)`, text `#22D3EE`.\n- **RAG / Doc Badge:** Surface `rgba(245, 158, 11, 0.1)`, 1px border `rgba(245, 158, 11, 0.3)`, text `#F59E0B`.\n- **Operational / Live Run Badge:** Surface `rgba(198, 244, 50, 0.12)`, 1px border `#C6F432`, text `#C6F432` accompanied by a 6px static or pulsing `#C6F432` pip.\n\n### 3. Data Inputs & Query Console Fields\n- **Container:** Background `#161B22`, 1px solid `#2A323C`, 8px corner radius.\n- **Focus State:** 1px solid `#22D3EE` (zero glow or outer focus rings).\n- **Placeholder:** `#484F58`. Text: `#F0F6FC`. Monospaced text configuration for SQL/parameter fields.\n\n### 4. Telemetry Metric Cards & HUD Panels\n- **Container:** `#161B22` background, 1px `#2A323C` border, 12px radius, `space-md` internal padding.\n- **Header:** Uppercase `label-telemetry` muted text (`#8B949E`) with trailing semantic color marker.\n- **Value:** `metric-display` (`JetBrains Mono` 28px, `#F0F6FC`), followed immediately by tabular delta badges.\n\n### 5. Checkboxes, Toggles & Radios\n- **Checkboxes:** 16px square, 4px radius, 1px `#2A323C` border, `#161B22` background. Checked state: `#C6F432` background with `#0E1116` interior vector check icon.\n- **Toggles:** Track width 36px, height 20px, `#1D242D` base, 1px `#2A323C` border. Active thumb shifts to `#C6F432`.\n\n### 6. Lists & Log Streams\n- **Stream Rows:** Alternating hairline dividers (`1px solid #2A323C`).\n- **Telemetry Hover:** Immediate background transition to `#1D242D`.\n- **Layout:** Monospaced micro-timestamp (`#484F58`), status badge, payload description (`IBM Plex Sans`), and latency readout pinned to the far right.",
+    "colorVariant": "FIDELITY",
+    "overridePrimaryColor": "#c6f432",
+    "overrideSecondaryColor": "#22d3ee",
+    "overrideTertiaryColor": "#f59e0b",
+    "overrideNeutralColor": "#0e1116",
+    "spacingScale": 2,
+    "typography": {
+      "headline-lg": {
+        "fontFamily": "Space Grotesk",
+        "fontSize": "24px",
+        "fontWeight": "600",
+        "lineHeight": "32px",
+        "letterSpacing": "-0.015em"
+      },
+      "label-telemetry": {
+        "fontFamily": "JetBrains Mono",
+        "fontSize": "11px",
+        "fontWeight": "500",
+        "lineHeight": "14px",
+        "letterSpacing": "0.06em"
+      },
+      "metric-display": {
+        "fontFamily": "JetBrains Mono",
+        "fontSize": "28px",
+        "fontWeight": "700",
+        "lineHeight": "32px",
+        "letterSpacing": "-0.03em"
+      },
+      "headline-xl": {
+        "fontFamily": "Space Grotesk",
+        "fontSize": "32px",
+        "fontWeight": "700",
+        "lineHeight": "40px",
+        "letterSpacing": "-0.02em"
+      },
+      "headline-md": {
+        "fontFamily": "Space Grotesk",
+        "fontSize": "18px",
+        "fontWeight": "600",
+        "lineHeight": "24px",
+        "letterSpacing": "-0.01em"
+      },
+      "body-sm": {
+        "fontFamily": "IBM Plex Sans",
+        "fontSize": "12px",
+        "fontWeight": "400",
+        "lineHeight": "16px"
+      },
+      "body-lg": {
+        "fontFamily": "IBM Plex Sans",
+        "fontSize": "15px",
+        "fontWeight": "400",
+        "lineHeight": "22px"
+      },
+      "headline-lg-mobile": {
+        "fontFamily": "Space Grotesk",
+        "fontSize": "20px",
+        "fontWeight": "600",
+        "lineHeight": "28px",
+        "letterSpacing": "-0.01em"
+      },
+      "headline-xl-mobile": {
+        "fontFamily": "Space Grotesk",
+        "fontSize": "24px",
+        "fontWeight": "700",
+        "lineHeight": "32px",
+        "letterSpacing": "-0.01em"
+      },
+      "code-md": {
+        "fontFamily": "JetBrains Mono",
+        "fontSize": "12px",
+        "fontWeight": "400",
+        "lineHeight": "18px"
+      },
+      "code-lg": {
+        "fontFamily": "JetBrains Mono",
+        "fontSize": "14px",
+        "fontWeight": "500",
+        "lineHeight": "20px"
+      },
+      "body-md": {
+        "fontFamily": "IBM Plex Sans",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "lineHeight": "18px"
+      }
+    },
+    "spacing": {
+      "margin-desktop": "1.5rem",
+      "gutter-mobile": "0.5rem",
+      "gutter": "1rem",
+      "space-lg": "1rem",
+      "space-md": "0.75rem",
+      "margin-mobile": "0.75rem",
+      "margin": "1rem",
+      "space-xs": "0.25rem",
+      "gutter-desktop": "1rem",
+      "space-sm": "0.5rem",
+      "space-xl": "1.5rem"
+    },
+    "headlineFontFamily": "Space Grotesk",
+    "bodyFontFamily": "IBM Plex Sans",
+    "labelFontFamily": "JetBrains Mono"
+  },
+  "screenInstances": [
+    {
+      "id": "39f5add39d8b4068af32ef0e90708a95",
+      "sourceScreen": "projects/16089620894539968109/screens/39f5add39d8b4068af32ef0e90708a95",
+      "x": 1024,
+      "y": 4845,
+      "width": 1280,
+      "height": 1284,
+      "label": "Business Assistant - Live Analysis (Light Theme)"
+    },
+    {
+      "id": "870cc0451a1045908c13cd03ba90b760",
+      "sourceScreen": "projects/16089620894539968109/screens/870cc0451a1045908c13cd03ba90b760",
+      "x": 2368,
+      "y": 4845,
+      "width": 1280,
+      "height": 1344,
+      "label": "Business Assistant - Live Analysis (Light Theme)"
+    },
+    {
+      "id": "8c88d588d29848c1ac9d623e4d9c347c",
+      "sourceScreen": "projects/16089620894539968109/screens/8c88d588d29848c1ac9d623e4d9c347c",
+      "y": 3118,
+      "width": 1280,
+      "height": 1471,
+      "label": "Business Assistant - Support Desk"
+    },
+    {
+      "id": "97a9442c557743ec93e21836ce0c7a39",
+      "sourceScreen": "projects/16089620894539968109/screens/97a9442c557743ec93e21836ce0c7a39",
+      "x": 1024,
+      "width": 1280,
+      "height": 1284,
+      "label": "Business Assistant - Live Analysis"
+    },
+    {
+      "id": "assets_756ed6b9e7f54313bdf4924c8dade580",
+      "y": 4845,
+      "width": 960,
+      "height": 540,
+      "sourceAsset": "assets/756ed6b9e7f54313bdf4924c8dade580",
+      "type": "DESIGN_SYSTEM_INSTANCE"
+    },
+    {
+      "id": "assets_8160f9fca4bb451cb91980184089d848",
+      "width": 960,
+      "height": 540,
+      "sourceAsset": "assets/8160f9fca4bb451cb91980184089d848",
+      "type": "DESIGN_SYSTEM_INSTANCE"
+    },
+    {
+      "id": "d1f350125a86484ca7b327253335b980",
+      "sourceScreen": "projects/16089620894539968109/screens/d1f350125a86484ca7b327253335b980",
+      "y": 1540,
+      "width": 1280,
+      "height": 1322,
+      "label": "Business Assistant - Data Quality"
+    }
+  ],
+  "metadata": {
+    "userRole": "OWNER"
+  },
+  "sharingSettings": {
+    "permissions": [
+      {
+        "id": "779570324163",
+        "role": "OWNER",
+        "email": "ahujabhavi77@gmail.com"
+      }
+    ],
+    "accessType": "RESTRICTED"
+  }
+}

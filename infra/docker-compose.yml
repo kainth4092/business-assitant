@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # PostgreSQL 16 with pgvector extension enabled
+  # ============================================================================
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: business_assistant_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-business_assistant}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_password}
+    ports:
+      # Map container port 5432 to host port 5434 to avoid port collision with local postgres
+      - "${POSTGRES_PORT:-5434}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-business_assistant}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - business_network
+
+  # ============================================================================
+  # FastAPI Backend Service (Containerized deployment)
+  # ============================================================================
+  backend:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.backend
+    container_name: business_assistant_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres_password}@postgres:5432/${POSTGRES_DB:-business_assistant}
+      - READONLY_DATABASE_URL=postgresql://sales_readonly:readonly_password@postgres:5432/${POSTGRES_DB:-business_assistant}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - LLM_MODEL=${LLM_MODEL:-gemini-1.5-flash}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-text-embedding-004}
+      - BACKEND_HOST=0.0.0.0
+      - BACKEND_PORT=8000
+    ports:
+      - "8000:8000"
+    networks:
+      - business_network
+
+  # ============================================================================
+  # Next.js Frontend Service (Containerized deployment)
+  # ============================================================================
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../infra/Dockerfile.frontend
+    container_name: business_assistant_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    ports:
+      - "3000:3000"
+    networks:
+      - business_network
+
+volumes:
+  pgdata:
+    name: business_assistant_pgdata
+
+networks:
+  business_network:
+    name: business_assistant_network
+    driver: bridge

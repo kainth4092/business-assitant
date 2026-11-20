@@ -1,0 +1,163 @@
+# Project Tasks Tracker: Business Assistant
+
+- [x] **Stage 0: Planning, Task Breakdown & Environment Verification**
+  - [x] Check local dependencies (Java, Docker, Python, Node, PostgreSQL)
+  - [x] Create `PLAN.md`
+  - [x] Create `TASKS.md`
+  - [x] Create `DECISIONS.md`
+  - [x] Create `.env.example`
+
+- [x] **Stage 1: Infrastructure Setup (PostgreSQL + pgvector)**
+  - [x] Write `infra/docker-compose.yml` for PostgreSQL + pgvector
+  - [x] Write `infra/init.sql` (schema for `sales`, `document_embeddings`, role `sales_readonly`)
+  - [x] Start PostgreSQL container and verify pgvector extension and user permissions
+
+- [x] **Stage 2: PySpark Sales Pipeline & Quality Audit**
+  - [x] Create synthetic data generator `pipelines/generate_data.py`
+  - [x] Generate `/data/BigMart_Sales.csv` (1000+ realistic records with messy labels, nulls, duplicates)
+  - [x] Write PySpark job `pipelines/clean_sales.py`
+    - [x] Read CSV and profile initial counts
+    - [x] Handle nulls in `Item_Weight` and `Outlet_Size`
+    - [x] Standardize labels (`Item_Fat_Content`, casing, trimming)
+    - [x] Deduplicate rows and fix column types
+    - [x] Generate `data/data_quality_report.json`
+    - [x] Export cleaned Parquet to `data/cleaned_sales.parquet`
+    - [x] Load cleaned sales into PostgreSQL `sales` table
+  - [x] Run and verify PySpark job
+
+- [x] **Stage 3: RAG Ingestion & Vector Retrieval**
+  - [x] Create 5 company policy documents in `/docs`:
+    - [x] `docs/return_policy.md`
+    - [x] `docs/faq.md`
+    - [x] `docs/promotion_policy.md`
+    - [x] `docs/outlet_guidelines.md`
+    - [x] `docs/pricing_policy.md`
+  - [x] Implement chunking & embedding ingestion script `pipelines/ingest_docs.py`
+  - [x] Implement similarity retrieval module `backend/rag/retrieval.py`
+  - [x] Run ingestion and verify vectors stored in PostgreSQL
+
+- [x] **Stage 4: Model Context Protocol (MCP) Server**
+  - [x] Create MCP tools module `mcp_server/tools.py`
+    - [x] `query_sales`: single SELECT, keyword blocking, LIMIT enforcement, read-only role
+    - [x] `search_docs`: cosine similarity retrieval over pgvector
+    - [x] `get_data_quality_report`: return PySpark audit report
+  - [x] Create MCP server entrypoint `mcp_server/server.py`
+  - [x] Test tool functions directly and verify security enforcement
+
+- [x] **Stage 5: LangChain & LangGraph Autonomous Agent**
+  - [x] Define LangGraph state in `backend/agent/state.py`
+  - [x] Implement graph nodes in `backend/agent/nodes.py`:
+    - [x] `router_node`: classify query into data, docs, or both
+    - [x] `agent_node`: autonomous tool calling with Gemini LLM
+    - [x] `answer_node`: final response synthesis with grounded sources
+    - [x] `check_node`: groundedness evaluation with retry loop logic (max 2 retries)
+  - [x] Build compiled graph with memory checkpointer in `backend/agent/graph.py`
+  - [x] Verify graph execution on sample queries
+
+- [x] **Stage 6: FastAPI REST API**
+  - [x] Implement FastAPI application in `backend/main.py`
+  - [x] Implement endpoints:
+    - [x] `GET /health`
+    - [x] `POST /chat` (query, thread_id -> answer, tools_used, sources, trace)
+    - [x] `GET /data-quality`
+    - [x] `GET /sources`
+  - [x] Add CORS middleware and error handlers
+  - [x] Test API endpoints with curl / test client
+
+- [x] **Stage 7: Next.js + Tailwind CSS Frontend**
+  - [x] Setup Next.js application in `/frontend` using JavaScript (`.jsx`) and Tailwind CSS
+  - [x] Build chat interface component with conversation history
+  - [x] Build "How I Answered" panel (trace: route, tools called, retries, source snippets, SQL)
+  - [x] Implement 5 preset sample query buttons
+  - [x] Build Data Quality tab / dashboard
+  - [x] Verify frontend build (`npm run build`)
+
+- [x] **Stage 8: Cloud Readiness & Deployment Guides**
+  - [x] Create `infra/Dockerfile.backend`
+  - [x] Create `infra/Dockerfile.frontend`
+  - [x] Write `infra/DEPLOY_GCP.md` / `docs/DEPLOY_GCP.md`
+  - [x] Write `infra/DEPLOY_AWS.md` / `docs/DEPLOY_AWS.md`
+  - [x] Provide component mapping tables for GCP and AWS
+
+- [x] **Stage 9: Automated Testing & Verification**
+  - [x] Write `tests/test_sql_safety.py`
+  - [x] Write `tests/test_router.py`
+  - [x] Write `tests/test_retry_cap.py`
+  - [x] Write `tests/test_rag.py`
+  - [x] Write `tests/test_api.py`
+  - [x] Run `pytest tests/` and verify all tests pass without live API key
+  - [x] Verify end-to-end frontend production build
+
+- [x] **Stage 10: Documentation & Final Deliverables**
+  - [x] Write `README.md`
+  - [x] Write `ARCHITECTURE.md` with Mermaid diagrams
+  - [x] Write `EXPLAIN.md` with real-world analogies
+  - [x] Write `INTERVIEW_QA.md` (25 manager questions and answers)
+  - [x] Write `BLOCKED.md`
+  - [x] Print final summary with setup steps, commands, and 5 demo questions
+
+- [x] **Stage 11: Editorial Analyst Workbench Redesign**
+  - [x] Create `DESIGN_NOTES.md` documenting design tokens, typography, grid rules, and component roster
+  - [x] Implement design tokens with CSS custom properties in `frontend/app/globals.css`
+  - [x] Configure Tailwind CSS with semantic tokens and Google fonts (`Newsreader`, `IBM Plex Sans`, `IBM Plex Mono`)
+  - [x] Create modular components:
+    - [x] `frontend/components/ThemeToggle.jsx` (seamless light/dark theme switching)
+    - [x] `frontend/components/SqlBlock.jsx` (mono syntax highlighting with copy button)
+    - [x] `frontend/components/DataTable.jsx` (tabular figures and row count)
+    - [x] `frontend/components/SourceChip.jsx` (interactive inline citation chips)
+    - [x] `frontend/components/QualityBars.jsx` (pure CSS/SVG comparative bars)
+    - [x] `frontend/components/StatusLine.jsx` (step-by-step progress ticker)
+    - [x] `frontend/components/EvidencePanel.jsx` (route badge, tool chain, SQL block, table, vector chunks, audit verification)
+    - [x] `frontend/components/ChatMessage.jsx` (document log styling with `Q_01` labels, prose answers, inline citations)
+    - [x] `frontend/components/EmptyState.jsx` (quiet list of 5 preset investigation starters)
+    - [x] `frontend/components/DataQualityView.jsx` (PySpark ETL metrics, null imputations, class standardizations)
+    - [x] `frontend/components/DocumentsView.jsx` (pgvector knowledge base, 5 policies, chunk statistics)
+    - [x] `frontend/components/Sidebar.jsx` (240px workbench navigation, session query log, DB telemetry pill)
+  - [x] Rewrite `frontend/app/page.jsx` with responsive 3-pane workbench architecture
+  - [x] Verify ESLint (`npm run lint` -> 0 errors, 0 warnings)
+  - [x] Verify production build (`npm run build` -> 100% success)
+  - [x] End-to-end visual and functional browser verification (Empty state, SQL Data Route, Theme toggle, Data Quality tab, Documents tab, RAG Docs Route)
+
+- [x] **Stage 12: Autonomous Support Desk with Human-in-the-Loop Remediation**
+  - [x] Database schema: `infra/support_schema.sql` (`support_tickets`, `audit_log`, `sales_sandbox`) seeded with test data
+  - [x] Buggy demo target module `/demo_target` with unit tests failing before fix and passing after fix
+  - [x] FastMCP support tools in `mcp_server/support_tools.py` (`get_ticket_context`, `run_data_quality_checks`, `preview_fix` in sandbox, `apply_fix` with approval token check, `audit_log` tracking)
+  - [x] LangGraph `support_graph` in `backend/agent/support_graph.py` with 7 stages (Classify, Investigate, Propose, Test, Await Approval, Apply, Notify) and `MemorySaver` checkpointer pause/resume
+  - [x] Channel adapters in `backend/support/adapters.py` (Webhook, Slack, MS Teams stubs)
+  - [x] Simulator script `scripts/simulate_messages.py` for automated incident dispatching
+  - [x] FastAPI REST endpoints in `backend/main.py`:
+    - [x] `POST /support/messages`
+    - [x] `GET /support/tickets`
+    - [x] `GET /support/tickets/{ticket_id}`
+    - [x] `POST /support/tickets/{ticket_id}/approve`
+    - [x] `POST /support/tickets/{ticket_id}/reject`
+  - [x] Support Desk frontend view `frontend/components/SupportDeskView.jsx` (backlog, simulator box, timeline, diff/SQL block, before/after sandbox table, HITL approval modal, audit trail)
+  - [x] Sidebar integration in `frontend/components/Sidebar.jsx` and `frontend/app/page.jsx` with pending ticket counter
+  - [x] Automated test suite `tests/test_support_desk.py` (all 47 tests passing)
+  - [x] Frontend linting & build verification (`npm run lint` and `npm run build` -> 0 errors)
+  - [x] Documentation updates: `README.md`, `ARCHITECTURE.md`, `EXPLAIN.md`, `INTERVIEW_QA.md`, `DEMO_SCRIPT.md`, `DECISIONS.md`, `TASKS.md`
+
+- [x] **Stage 13: Zero-Mock & Live-Data Transition**
+  - [x] Conduct comprehensive audit and produce `AUDIT.md`
+  - [x] Add PostgreSQL tables for `quality_reports`, `conversations`, `messages` in `infra/init.sql`
+  - [x] Update PySpark pipeline (`pipelines/clean_sales.py`) to write quality reports to PostgreSQL `quality_reports` table
+  - [x] Update document ingestion pipeline (`pipelines/ingest_docs.py`) to dynamically scan all documents in `docs/`
+  - [x] Implement backend endpoints in `backend/main.py`:
+    - [x] `GET /status` (Postgres connection, sales row count, chunk count, MCP tools, models)
+    - [x] `GET /documents` & `GET /documents/{id}/chunks`
+    - [x] `GET /data-quality` (from `quality_reports` table)
+    - [x] `GET /conversations` & `GET /conversations/{id}`
+    - [x] `GET /sample-questions` (dynamic starter generation from distinct sales & doc data)
+  - [x] Create one-command setup script `scripts/setup.sh` and `Makefile`
+  - [x] Clean and update frontend components to remove all mock and hardcoded data:
+    - [x] `frontend/components/EmptyState.jsx`
+    - [x] `frontend/components/DataQualityView.jsx`
+    - [x] `frontend/components/DocumentsView.jsx`
+    - [x] `frontend/components/Sidebar.jsx`
+    - [x] `frontend/components/EvidencePanel.jsx`
+    - [x] `frontend/components/SupportDeskView.jsx`
+    - [x] `frontend/components/TicketDetail.jsx`
+    - [x] `frontend/app/page.jsx`
+  - [x] Add automated zero-mock guardrail tests (`tests/test_zero_mock_guardrails.py`)
+  - [x] Run full backend & frontend verification (`pytest`, `npm run lint`, `npm run build`)
+  - [x] Write comprehensive beginner usage guide `USAGE.md`

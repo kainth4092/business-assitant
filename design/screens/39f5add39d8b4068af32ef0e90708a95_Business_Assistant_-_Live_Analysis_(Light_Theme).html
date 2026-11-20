@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+
+<html class="" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;700&amp;family=Space+Grotesk:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"on-primary-fixed-variant":"#3b4d00","surface":"#111319","on-surface-variant":"#c4c9ae","secondary-container":"#00cbe6","surface-tint":"#aad600","error":"#ffb4ab","tertiary":"#ffffff","secondary":"#5de6ff","inverse-on-surface":"#2e3036","on-tertiary-fixed":"#2a1700","on-tertiary-fixed-variant":"#653e00","on-primary":"#283500","surface-variant":"#32353a","error-container":"#93000a","outline-variant":"#444934","primary-fixed-dim":"#aad600","surface-container-highest":"#32353a","secondary-fixed-dim":"#2fd9f4","on-tertiary":"#472a00","tertiary-container":"#ffddb8","surface-dim":"#111319","on-error-container":"#ffdad6","on-secondary":"#00363e","on-secondary-fixed":"#001f25","tertiary-fixed-dim":"#ffb95f","surface-bright":"#36393f","inverse-primary":"#506600","on-secondary-fixed-variant":"#004e5a","on-surface":"#e1e2e9","surface-container-high":"#272a30","surface-container":"#1d2025","background":"#111319","on-error":"#690005","secondary-fixed":"#a2eeff","on-tertiary-container":"#8d5900","primary-container":"#c5f331","on-secondary-container":"#00515d","surface-container-lowest":"#0b0e13","on-primary-fixed":"#161f00","surface-container-low":"#191c21","primary":"#ffffff","outline":"#8e937a","on-primary-container":"#556d00","on-background":"#e1e2e9","inverse-surface":"#e1e2e9","tertiary-fixed":"#ffddb8","primary-fixed":"#c5f331"},borderRadius:{DEFAULT:"0.25rem",lg:"0.5rem",xl:"0.75rem",full:"9999px"},spacing:{"space-lg":"1rem","margin-mobile":"0.75rem","space-xs":"0.25rem",margin:"1rem","space-md":"0.75rem","gutter-desktop":"1rem","margin-desktop":"1.5rem","space-xl":"1.5rem",gutter:"1rem","gutter-mobile":"0.5rem","space-sm":"0.5rem"},fontFamily:{"body-lg":["IBM Plex Sans"],"body-sm":["IBM Plex Sans"],"headline-lg":["Space Grotesk"],"code-md":["JetBrains Mono"],"metric-display":["JetBrains Mono"],"headline-xl":["Space Grotesk"],"headline-xl-mobile":["Space Grotesk"],"label-telemetry":["JetBrains Mono"],"code-lg":["JetBrains Mono"],"headline-lg-mobile":["Space Grotesk"],"body-md":["IBM Plex Sans"],"headline-md":["Space Grotesk"]},fontSize:{"body-lg":["15px",{lineHeight:"22px",fontWeight:"400"}],"body-sm":["12px",{lineHeight:"16px",fontWeight:"400"}],"headline-lg":["24px",{lineHeight:"32px",letterSpacing:"-0.015em",fontWeight:"600"}],"code-md":["12px",{lineHeight:"18px",fontWeight:"400"}],"metric-display":["28px",{lineHeight:"32px",letterSpacing:"-0.03em",fontWeight:"700"}],"headline-xl":["32px",{lineHeight:"40px",letterSpacing:"-0.02em",fontWeight:"700"}],"headline-xl-mobile":["24px",{lineHeight:"32px",letterSpacing:"-0.01em",fontWeight:"700"}],"label-telemetry":["11px",{lineHeight:"14px",letterSpacing:"0.06em",fontWeight:"500"}],"code-lg":["14px",{lineHeight:"20px",fontWeight:"500"}],"headline-lg-mobile":["20px",{lineHeight:"28px",letterSpacing:"-0.01em",fontWeight:"600"}],"body-md":["13px",{lineHeight:"18px",fontWeight:"400"}],"headline-md":["18px",{lineHeight:"24px",letterSpacing:"-0.01em",fontWeight:"600"}]}}}}</script></head><body class="bg-surface font-body-md text-body-md text-on-surface antialiased selection:bg-primary-container selection:text-on-primary-container"><aside class="fixed left-0 top-0 h-full w-[72px] bg-surface-container-lowest border-r border-surface-variant z-50 flex flex-col justify-between items-center py-space-md select-none"><div class="flex flex-col items-center w-full gap-space-lg"><div class="h-12 w-full flex items-center justify-center"><img alt="Business Assistant Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/ALJJyrDxv1ChW9d0kmK8lC-3y1Xd5aIYf3rMJenKgns3sgQhZx3f0PLfkDExsW1CQIq1gvI3G6_IATEVLq7cQWDS7KtkSCCb83Bx8gnYasnNruL7rm4XsolzcyJ79LqGqeLwPmjhrjHg3sjm5MMtgRqs5DdzD81yw2WuTAI5A7yTDvvnN8dExzL36y6BRVzior6I-bm-v_xp-5HdpsX0vIOQR-3odE6LS3kxKtFLVKhznF_x"/></div><nav class="flex flex-col items-center w-full gap-space-sm" data-active-classes="bg-surface-container-high text-primary border-l-2 border-primary-container"><a aria-current="page" class="relative flex flex-col items-center justify-center w-full h-14 transition-colors group bg-surface-container-high text-primary border-l-2 border-primary-container" data-path="live-control-room" href="#" title="Analysis"><span class="material-symbols-outlined text-[20px]">query_stats</span><span class="font-label-telemetry text-label-telemetry text-[9px] uppercase tracking-wider mt-1 opacity-70 group-hover:opacity-100">Analysis</span></a><a class="relative flex flex-col items-center justify-center w-full h-14 text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors group" data-path="data-quality" href="#" title="Data Quality"><span class="material-symbols-outlined text-[20px]">verified</span><span class="font-label-telemetry text-label-telemetry text-[9px] uppercase tracking-wider mt-1 opacity-70 group-hover:opacity-100">Quality</span></a><a class="relative flex flex-col items-center justify-center w-full h-14 text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors group" data-path="documents" href="#" title="Documents"><span class="material-symbols-outlined text-[20px]">folder_data</span><span class="font-label-telemetry text-label-telemetry text-[9px] uppercase tracking-wider mt-1 opacity-70 group-hover:opacity-100">Docs</span></a><a class="relative flex flex-col items-center justify-center w-full h-14 text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors group" data-path="support-desk" href="#" title="Support Desk"><span class="material-symbols-outlined text-[20px]">headset_mic</span><span class="font-label-telemetry text-label-telemetry text-[9px] uppercase tracking-wider mt-1 opacity-70 group-hover:opacity-100">Support</span></a></nav></div><div class="flex flex-col items-center w-full gap-space-md pb-space-xs"><button class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded transition-colors" title="Toggle Theme" type="button"><span class="material-symbols-outlined text-[18px]">light_mode</span></button><a class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded transition-colors" data-path="settings" href="#" title="System Settings"><span class="material-symbols-outlined text-[18px]">tune</span></a><div class="w-full px-1 pt-space-xs border-t border-surface-variant flex flex-col items-center justify-center text-center"><div class="flex items-center gap-1.5 py-1 px-1.5" title="WS CONNECTED (18ms)"><span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-container opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-primary-container"></span></span><span class="font-label-telemetry text-[8px] text-on-surface-variant uppercase tracking-tighter hidden group-hover:inline">LIVE</span></div><span class="font-code-md text-[8px] text-outline leading-none">18ms</span></div></div></aside><div class="pl-[72px]"><header class="fixed top-0 left-[72px] right-0 h-16 bg-surface-container-lowest/95 backdrop-blur-md border-b border-surface-variant z-40 px-space-lg flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-lg min-w-0"><div class="flex items-center gap-space-sm font-label-telemetry text-label-telemetry text-on-surface-variant tracking-wider shrink-0"><span class="text-primary font-semibold">Business Assistant</span><span class="text-outline">/</span><span class="text-secondary">Live Analysis</span><span class="font-code-md text-on-surface px-1.5 py-0.5 rounded bg-surface-container-high border border-surface-variant">#RUN-8842</span></div><div class="flex items-center gap-2 px-2.5 py-1 rounded bg-surface-container-low border border-primary-container/30 shrink-0"><span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-container opacity-80"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-primary-container"></span></span><span class="font-label-telemetry text-label-telemetry text-primary-container uppercase font-semibold">AGENT WORKING</span></div></div><div class="hidden xl:flex items-center gap-space-md"><div class="flex items-center gap-space-sm px-3 py-1.5 bg-surface-container-low border border-surface-variant rounded"><span class="font-label-telemetry text-label-telemetry text-on-surface-variant uppercase">Sales Records</span><div class="flex items-center gap-1.5"><span class="font-metric-display text-[16px] text-primary">1,500</span><span class="w-2 h-2 rounded-full border border-secondary bg-secondary/20"></span></div></div><div class="flex items-center gap-space-sm px-3 py-1.5 bg-surface-container-low border border-surface-variant rounded"><span class="font-label-telemetry text-label-telemetry text-on-surface-variant uppercase">Doc Chunks</span><div class="flex items-center gap-1.5"><span class="font-metric-display text-[16px] text-tertiary-fixed-dim">21</span><span class="px-1 font-label-telemetry text-[9px] rounded bg-on-tertiary-container/20 text-tertiary-fixed-dim border border-on-tertiary-container">AMB</span></div></div><div class="flex items-center gap-space-sm px-3 py-1.5 bg-surface-container-low border border-surface-variant rounded"><span class="font-label-telemetry text-label-telemetry text-on-surface-variant uppercase">Active Tools</span><div class="flex items-center gap-1.5"><span class="font-metric-display text-[16px] text-primary-container">3</span><span class="px-1 font-label-telemetry text-[9px] rounded bg-primary-container/20 text-primary-container border border-primary-container/40">MINT</span></div></div></div><div class="flex items-center gap-space-md shrink-0"><div class="flex items-center gap-2 px-3 py-1 bg-surface-container-low border border-secondary-container/40 rounded text-secondary"><span class="material-symbols-outlined text-[16px]">verified</span><span class="font-code-md text-code-md">Answer verified</span><span class="font-label-telemetry text-label-telemetry text-on-surface-variant">(0.42s)</span></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></header><main class="relative pt-16 min-h-screen bg-surface"><div class="flex flex-col w-full text-on-surface">
+<div class="flex flex-col lg:flex-row w-full min-h-[calc(100vh-4rem)] bg-surface-container-lowest">
+<!-- ========================================== -->
+<!-- 1. CENTER CONVERSATION & PIPELINE STREAM   -->
+<!-- ========================================== -->
+<section class="flex-1 max-w-[900px] w-full mx-auto px-4 md:px-8 py-6 flex flex-col gap-6 relative">
+<!-- Top Operational Metadata Strip & Verification Floating Indicator -->
+<div class="flex items-center justify-between gap-4">
+<div class="flex items-center gap-2">
+<span class="font-label-telemetry text-label-telemetry uppercase text-outline">Session Thread</span>
+<span class="font-code-md text-code-md text-on-surface-variant font-medium">#Q3-NORTHEAST-EXP</span>
+<span class="w-1.5 h-1.5 rounded-full bg-surface-variant"></span>
+<span class="font-label-telemetry text-label-telemetry text-outline">Cluster us-east-2</span>
+</div>
+<!-- Verification Floating Badge -->
+<div class="flex items-center gap-2 px-3 py-1 rounded bg-surface-container border border-surface-tint/30 text-surface-tint shadow-sm">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-surface-tint opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-surface-tint"></span>
+</span>
+<span class="font-label-telemetry text-label-telemetry tracking-tight font-medium">Answer verified (p99 checksum valid)</span>
+</div>
+</div>
+<!-- User Query Dispatch Card -->
+<div class="bg-surface-container rounded p-5 border border-surface-variant flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<div class="w-7 h-7 rounded bg-surface-container-high border border-surface-variant flex items-center justify-center font-label-telemetry text-label-telemetry text-primary font-bold">
+              OP
+            </div>
+<div class="flex flex-col">
+<span class="font-code-lg text-code-lg font-medium text-on-surface">Lead Operations Console</span>
+<span class="font-label-telemetry text-label-telemetry text-outline">14:28:02 EST • Priority P0</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded font-label-telemetry text-label-telemetry tracking-wide bg-surface-container-highest text-secondary border border-secondary/30">
+              MULTI-SOURCE (SQL + RAG)
+            </span>
+</div>
+</div>
+<p class="font-headline-md text-headline-md text-primary font-semibold tracking-tight">
+          What drove the 18% revenue lift in Northeast Q3 enterprise contracts, and which MSA clauses were applied?
+        </p>
+</div>
+<!-- Horizontal Multi-Agent Execution Pipeline -->
+<div class="bg-surface-container-low rounded p-3.5 border border-surface-variant flex flex-col gap-2.5">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[15px] text-surface-tint">account_tree</span>
+<span class="font-label-telemetry text-label-telemetry uppercase text-on-surface-variant font-semibold tracking-wider">Multi-Agent Dispatch Flow</span>
+</div>
+<span class="font-label-telemetry text-label-telemetry text-outline">Latency: 384ms cumulative</span>
+</div>
+<!-- 5-Step Pipeline Strip -->
+<div class="grid grid-cols-2 md:grid-cols-5 gap-2 items-center">
+<!-- Step 1: Routing -->
+<div class="flex items-center gap-2 px-2.5 py-1.5 rounded bg-surface-container border border-surface-tint/40 text-surface-tint">
+<span class="material-symbols-outlined text-[16px] text-surface-tint font-bold">check_circle</span>
+<div class="flex flex-col min-w-0">
+<span class="font-label-telemetry text-[10px] uppercase font-bold text-surface-tint">1. Route</span>
+<span class="font-code-md text-[10px] text-on-surface-variant truncate">Hybrid Split</span>
+</div>
+</div>
+<!-- Step 2: Query -->
+<div class="flex items-center gap-2 px-2.5 py-1.5 rounded bg-surface-container border border-secondary/40 text-secondary">
+<span class="material-symbols-outlined text-[16px] text-secondary font-bold">check_circle</span>
+<div class="flex flex-col min-w-0">
+<span class="font-label-telemetry text-[10px] uppercase font-bold text-secondary">2. SQL Gen</span>
+<span class="font-code-md text-[10px] text-on-surface-variant truncate">14.2ms</span>
+</div>
+</div>
+<!-- Step 3: Retrieve -->
+<div class="flex items-center gap-2 px-2.5 py-1.5 rounded bg-surface-container border border-tertiary-fixed-dim/40 text-tertiary-fixed-dim">
+<span class="material-symbols-outlined text-[16px] text-tertiary-fixed-dim font-bold">check_circle</span>
+<div class="flex flex-col min-w-0">
+<span class="font-label-telemetry text-[10px] uppercase font-bold text-tertiary-fixed-dim">3. Retrieve</span>
+<span class="font-code-md text-[10px] text-on-surface-variant truncate">k=5 / 0.89</span>
+</div>
+</div>
+<!-- Step 4: Answer Synthesis (ACTIVE WORKING) -->
+<div class="flex items-center gap-2 px-2.5 py-1.5 rounded bg-surface-container-high border-2 border-primary-container text-primary-container relative overflow-hidden">
+<span class="relative flex h-2.5 w-2.5 shrink-0">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-container opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary-container"></span>
+</span>
+<div class="flex flex-col min-w-0">
+<span class="font-label-telemetry text-[10px] uppercase font-bold text-primary-container">4. Synthesis</span>
+<span class="font-code-md text-[10px] text-primary truncate">Token 248/310...</span>
+</div>
+</div>
+<!-- Step 5: Verification & Safety (PENDING) -->
+<div class="flex items-center gap-2 px-2.5 py-1.5 rounded bg-surface-container/60 border border-dashed border-outline-variant text-outline col-span-2 md:col-span-1">
+<span class="material-symbols-outlined text-[16px] text-outline">pending</span>
+<div class="flex flex-col min-w-0">
+<span class="font-label-telemetry text-[10px] uppercase font-bold text-outline">5. Safety</span>
+<span class="font-code-md text-[10px] text-outline truncate">Queued</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Realtime Streaming Answer Card -->
+<div class="bg-surface-container rounded p-6 border-l-4 border-l-surface-tint border-y border-r border-surface-variant flex flex-col gap-4 relative">
+<div class="flex items-center justify-between pb-3 border-b border-surface-variant">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-[18px] text-surface-tint">neurology</span>
+<span class="font-headline-md text-headline-md text-primary font-semibold">Synthesized Intelligence</span>
+<span class="px-1.5 py-0.5 rounded bg-surface-container-highest border border-surface-variant font-code-md text-[10px] text-on-surface-variant">Agent v3.4 Engine</span>
+</div>
+<div class="flex items-center gap-3 text-outline font-label-telemetry text-label-telemetry">
+<span class="flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-surface-tint"></span> Stream 412ms
+            </span>
+<button class="hover:text-primary transition-colors" title="Export Stream" type="button">
+<span class="material-symbols-outlined text-[16px]">ios_share</span>
+</button>
+</div>
+</div>
+<!-- Synthesized Body Copy with Live Cursor and Inline Badges -->
+<div class="font-body-lg text-body-lg text-on-surface leading-relaxed flex flex-col gap-3">
+<p>
+            The Northeast Q3 revenue surge was primarily driven by rapid closing of tier-1 institutional expansions, totaling 
+            <span class="font-metric-display text-[18px] text-primary font-bold">$4.18M ARR</span> 
+            versus the forecasted target of 
+            <span class="font-code-md text-code-md text-on-surface-variant">$3.54M</span>. 
+            Detailed row aggregation confirms five flagship contracts accounted for 82% of this variance, spearheaded by 
+            Apex Logistics and Hudson Financial
+            <a class="inline-flex items-center gap-1 mx-1 px-1.5 py-0.5 rounded bg-secondary/10 border border-secondary/40 text-secondary hover:bg-secondary/20 transition-all font-label-telemetry text-[11px] align-baseline" href="#evidence-sql">
+<span class="material-symbols-outlined text-[12px]">database</span>
+<span>[1] v_enterprise_sales_q3</span>
+</a>.
+          </p>
+<p>
+            Legal clause audits indicate that all five agreements activated non-standard terms under 
+            <strong class="text-primary font-semibold">Volume Incentive Tier 4</strong> and expedited SLA commitments. Specifically, 
+            <span class="text-on-surface">Mutual Indemnification Cap Expansion</span> was granted alongside uncapped uptime guarantees pursuant to 
+            <a class="inline-flex items-center gap-1 mx-1 px-1.5 py-0.5 rounded bg-tertiary-fixed-dim/10 border border-tertiary-fixed-dim/40 text-tertiary-fixed-dim hover:bg-tertiary-fixed-dim/20 transition-all font-label-telemetry text-[11px] align-baseline" href="#evidence-rag">
+<span class="material-symbols-outlined text-[12px]">description</span>
+<span>[2] Northeast_MSA_Standard_2024.pdf §4.2</span>
+</a>. 
+            Furthermore, addenda reflect early renewal discounts tied to auto-billing schedules finalized on September 18th<span class="inline-block w-2 h-4 ml-1 bg-primary-container align-middle animate-pulse"></span>
+</p>
+</div>
+<!-- Dynamic Shimmer Placeholder (Token in-flight simulation) -->
+<div class="mt-2 p-3 rounded bg-surface-container-low border border-surface-variant flex flex-col gap-2 opacity-80">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-ping"></span>
+<span class="font-label-telemetry text-[10px] text-primary-container uppercase font-semibold">Generating Risk Mitigation &amp; Compliance Telemetry...</span>
+</div>
+<div class="space-y-2">
+<div class="h-2.5 bg-surface-variant rounded w-5/6 animate-pulse"></div>
+<div class="h-2.5 bg-surface-variant rounded w-3/4 animate-pulse"></div>
+</div>
+</div>
+<!-- Stream Action Tools -->
+<div class="flex items-center justify-between pt-3 border-t border-surface-variant">
+<div class="flex items-center gap-2">
+<button class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container-high hover:bg-surface-variant text-on-surface font-label-telemetry text-[11px] border border-surface-variant transition-colors" type="button">
+<span class="material-symbols-outlined text-[14px]">content_copy</span> Copy Response
+            </button>
+<button class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container-high hover:bg-surface-variant text-on-surface font-label-telemetry text-[11px] border border-surface-variant transition-colors" type="button">
+<span class="material-symbols-outlined text-[14px]">table_view</span> View Combined View
+            </button>
+</div>
+<div class="flex items-center gap-1 text-outline">
+<button class="p-1 hover:text-on-surface transition-colors" title="Helpful" type="button">
+<span class="material-symbols-outlined text-[18px]">thumb_up</span>
+</button>
+<button class="p-1 hover:text-on-surface transition-colors" title="Unhelpful" type="button">
+<span class="material-symbols-outlined text-[18px]">thumb_down</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Suggested Next Prompts Row -->
+<div class="flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<span class="font-label-telemetry text-label-telemetry text-outline uppercase tracking-wider">Suggested Exploration Trajectories</span>
+<span class="font-label-telemetry text-label-telemetry text-outline">Press Tab to cycle</span>
+</div>
+<div class="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+<!-- Suggestion 1: SQL Cyan -->
+<button class="flex items-center gap-2 px-3 py-1.5 rounded bg-surface-container hover:bg-surface-container-high border border-surface-variant hover:border-secondary/50 text-left shrink-0 transition-colors group" type="button">
+<span class="w-2 h-2 rounded-full bg-secondary shrink-0"></span>
+<span class="font-body-sm text-body-sm text-on-surface-variant group-hover:text-primary">Summarize Q3 churn rate by customer tier (SQL)</span>
+<span class="material-symbols-outlined text-[14px] text-outline group-hover:text-secondary">arrow_forward</span>
+</button>
+<!-- Suggestion 2: RAG Amber -->
+<button class="flex items-center gap-2 px-3 py-1.5 rounded bg-surface-container hover:bg-surface-container-high border border-surface-variant hover:border-tertiary-fixed-dim/50 text-left shrink-0 transition-colors group" type="button">
+<span class="w-2 h-2 rounded-full bg-tertiary-fixed-dim shrink-0"></span>
+<span class="font-body-sm text-body-sm text-on-surface-variant group-hover:text-primary">Extract termination clauses in Tier-1 SLA docs (RAG)</span>
+<span class="material-symbols-outlined text-[14px] text-outline group-hover:text-tertiary-fixed-dim">arrow_forward</span>
+</button>
+<!-- Suggestion 3: Hybrid Mint -->
+<button class="flex items-center gap-2 px-3 py-1.5 rounded bg-surface-container hover:bg-surface-container-high border border-surface-variant hover:border-surface-tint/50 text-left shrink-0 transition-colors group" type="button">
+<span class="w-2 h-2 rounded-full bg-surface-tint shrink-0"></span>
+<span class="font-body-sm text-body-sm text-on-surface-variant group-hover:text-primary">Correlate support escalation spikes with ERP deployment (Hybrid)</span>
+<span class="material-symbols-outlined text-[14px] text-outline group-hover:text-surface-tint">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Command Console & Input Composer -->
+<div class="mt-auto bg-surface-container-high border border-surface-variant rounded-lg p-3.5 flex flex-col gap-3 shadow-md focus-within:border-primary-container transition-colors">
+<!-- Input Textarea Field -->
+<div class="relative">
+<textarea class="w-full bg-transparent text-primary font-body-md text-body-md placeholder:text-outline focus:outline-none resize-none leading-relaxed" placeholder="Ask a question across sales databases and uploaded documentation..." rows="2"></textarea>
+</div>
+<!-- Controls Toolbar -->
+<div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-surface-variant/80">
+<!-- Routing Mode Segmented Control -->
+<div class="flex items-center p-0.5 rounded bg-surface-container-low border border-surface-variant text-on-surface-variant font-label-telemetry text-[11px]">
+<button class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container-highest text-primary-container font-semibold border border-primary-container/30" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+              Auto
+            </button>
+<button class="flex items-center gap-1.5 px-2.5 py-1 rounded hover:text-on-surface transition-colors" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+              Data
+            </button>
+<button class="flex items-center gap-1.5 px-2.5 py-1 rounded hover:text-on-surface transition-colors" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary-fixed-dim"></span>
+              Docs
+            </button>
+<button class="flex items-center gap-1.5 px-2.5 py-1 rounded hover:text-on-surface transition-colors" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-surface-tint"></span>
+              Both
+            </button>
+</div>
+<!-- Right Trigger Cluster -->
+<div class="flex items-center gap-3">
+<span class="font-code-md text-[11px] text-outline">14 / 8,000 tok</span>
+<div class="hidden sm:flex items-center gap-1 px-1.5 py-0.5 rounded bg-surface-container border border-surface-variant text-outline font-label-telemetry text-[10px]">
+<span>⌘</span><span>+</span><span>Enter</span>
+</div>
+<button class="flex items-center gap-2 px-4 py-2 rounded bg-primary-container text-on-primary-fixed hover:bg-surface-tint font-headline-md text-[14px] font-bold transition-colors shadow-sm" type="button">
+<span>Run Analysis</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- ========================================== -->
+<!-- 2. RIGHT LIVE EVIDENCE & TELEMETRY PANEL    -->
+<!-- ========================================== -->
+<aside class="w-full lg:w-[420px] xl:w-[460px] bg-surface-container-lowest border-t lg:border-t-0 lg:border-l border-surface-variant p-5 flex flex-col gap-5 overflow-y-auto" id="evidence-panel">
+<!-- Panel Header -->
+<div class="flex items-center justify-between pb-3 border-b border-surface-variant">
+<div class="flex items-center gap-2">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-container opacity-80"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-primary-container"></span>
+</span>
+<span class="font-headline-md text-[15px] font-bold tracking-tight text-primary uppercase">Live Evidence &amp; Telemetry</span>
+</div>
+<div class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface-container border border-surface-variant font-code-md text-code-md text-on-surface-variant">
+<span>384ms</span>
+</div>
+</div>
+<!-- Execution Tree Timeline -->
+<div class="bg-surface-container-low rounded p-3.5 border border-surface-variant flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<span class="font-label-telemetry text-label-telemetry uppercase text-outline">Inference Call Stack</span>
+<span class="font-label-telemetry text-[10px] text-surface-tint">3 Completed • 1 Active</span>
+</div>
+<div class="relative pl-5 flex flex-col gap-4">
+<!-- Vertical Connector Line with Traveling Pulse Effect -->
+<div class="absolute left-1.5 top-2 bottom-2 w-[1px] bg-surface-variant"></div>
+<div class="absolute left-[5px] top-6 w-[3px] h-6 bg-primary-container/80 rounded animate-pulse"></div>
+<!-- Timeline Node 1: Router -->
+<div class="relative flex items-start gap-2.5">
+<div class="absolute -left-5 top-1 w-3 h-3 rounded-full bg-surface-tint border-2 border-surface"></div>
+<div class="flex flex-col">
+<span class="font-code-md text-[12px] font-medium text-primary">Multi-modal classifier</span>
+<span class="font-label-telemetry text-[10px] text-on-surface-variant">Routing decision: [Data + Docs] (Confidence 0.98)</span>
+</div>
+</div>
+<!-- Timeline Node 2: SQL Engine -->
+<div class="relative flex items-start gap-2.5">
+<div class="absolute -left-5 top-1 w-3 h-3 rounded-full bg-secondary border-2 border-surface"></div>
+<div class="flex flex-col">
+<span class="font-code-md text-[12px] font-medium text-secondary">Query parsed: Postgres DB prod_sales</span>
+<span class="font-label-telemetry text-[10px] text-on-surface-variant">Execution: 14.2ms • 14 records isolated</span>
+</div>
+</div>
+<!-- Timeline Node 3: Vector Store -->
+<div class="relative flex items-start gap-2.5">
+<div class="absolute -left-5 top-1 w-3 h-3 rounded-full bg-tertiary-fixed-dim border-2 border-surface"></div>
+<div class="flex flex-col">
+<span class="font-code-md text-[12px] font-medium text-tertiary-fixed-dim">Hybrid search: pgvector (k=5, sim=0.89)</span>
+<span class="font-label-telemetry text-[10px] text-on-surface-variant">Embedded over 1,420 token chunk candidates</span>
+</div>
+</div>
+<!-- Timeline Node 4: Synthesis -->
+<div class="relative flex items-start gap-2.5">
+<div class="absolute -left-5 top-1 w-3 h-3 rounded-full bg-primary-container border-2 border-surface animate-ping"></div>
+<div class="flex flex-col">
+<span class="font-code-md text-[12px] font-medium text-primary-container">Context streaming to tokenizer</span>
+<span class="font-label-telemetry text-[10px] text-primary">Generating JSON grounded claim pairs</span>
+</div>
+</div>
+</div>
+</div>
+<!-- SQL Execution Evidence Block -->
+<div class="bg-surface-container rounded border border-surface-variant flex flex-col overflow-hidden" id="evidence-sql">
+<div class="px-3.5 py-2.5 bg-surface-container-high border-b border-surface-variant flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-secondary">terminal</span>
+<span class="font-code-md text-code-md font-medium text-primary">enterprise_rev_q3.sql</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label-telemetry text-[10px] text-outline">14.2ms</span>
+<button class="flex items-center gap-1 text-on-surface-variant hover:text-primary transition-colors text-[11px]" id="copy-sql-btn" title="Copy SQL" type="button">
+<span class="material-symbols-outlined text-[14px]">file_copy</span>
+<span class="font-label-telemetry text-[10px]">Copy</span>
+</button>
+</div>
+</div>
+<!-- Syntax Code Box -->
+<div class="p-3 bg-surface-container-lowest font-code-md text-[11px] text-on-surface overflow-x-auto leading-relaxed border-b border-surface-variant">
+<p class="whitespace-pre"><code><span class="text-secondary">SELECT</span> account_id, region, arr_delta, contract_type 
+<span class="text-secondary">FROM</span> sales_contracts 
+<span class="text-secondary">WHERE</span> region = <span class="text-surface-tint">'NE'</span>
+<span class="text-secondary">AND</span> quarter = <span class="text-surface-tint">'Q3'</span>
+<span class="text-secondary">ORDER BY</span> arr_delta <span class="text-secondary">DESC</span>
+<span class="text-secondary">LIMIT</span> 5;</code></p>
+</div>
+<!-- Query Tabular Output Snippet -->
+<div class="overflow-x-auto">
+<table class="w-full text-left font-code-md text-[11px]">
+<thead class="bg-surface-container-low text-outline border-b border-surface-variant font-label-telemetry uppercase text-[9px]">
+<tr>
+<th class="py-1.5 px-3">Account</th>
+<th class="py-1.5 px-2">Reg</th>
+<th class="py-1.5 px-3">ARR Delta</th>
+<th class="py-1.5 px-2">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-variant">
+<tr class="bg-secondary/5 hover:bg-secondary/10 transition-colors">
+<td class="py-1.5 px-3 font-medium text-primary flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span> Apex Logistics
+                </td>
+<td class="py-1.5 px-2 text-on-surface-variant">NE</td>
+<td class="py-1.5 px-3 font-metric-display text-[12px] text-surface-tint">+$1.42M</td>
+<td class="py-1.5 px-2 text-secondary">Active</td>
+</tr>
+<tr class="hover:bg-surface-container-high transition-colors">
+<td class="py-1.5 px-3 font-medium text-primary">Hudson Financial</td>
+<td class="py-1.5 px-2 text-on-surface-variant">NE</td>
+<td class="py-1.5 px-3 font-metric-display text-[12px] text-surface-tint">+$1.15M</td>
+<td class="py-1.5 px-2 text-secondary">Active</td>
+</tr>
+<tr class="hover:bg-surface-container-high transition-colors">
+<td class="py-1.5 px-3 font-medium text-primary">Vanguard Retail Group</td>
+<td class="py-1.5 px-2 text-on-surface-variant">NE</td>
+<td class="py-1.5 px-3 font-metric-display text-[12px] text-surface-tint">+$0.82M</td>
+<td class="py-1.5 px-2 text-outline">Review</td>
+</tr>
+<tr class="hover:bg-surface-container-high transition-colors">
+<td class="py-1.5 px-3 font-medium text-primary">Beacon Biopharma</td>
+<td class="py-1.5 px-2 text-on-surface-variant">NE</td>
+<td class="py-1.5 px-3 font-metric-display text-[12px] text-surface-tint">+$0.51M</td>
+<td class="py-1.5 px-2 text-secondary">Active</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- RAG Evidence Document Chunks -->
+<div class="flex flex-col gap-2.5" id="evidence-rag">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-tertiary-fixed-dim">source_notes</span>
+<span class="font-label-telemetry text-label-telemetry uppercase text-outline">Retrieved Document Citations</span>
+</div>
+<span class="font-label-telemetry text-[10px] text-tertiary-fixed-dim">2 Chunks Verified</span>
+</div>
+<!-- Chunk Card 1 -->
+<div class="bg-surface-container rounded p-3 border border-surface-variant hover:border-tertiary-fixed-dim/40 transition-colors flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<span class="font-code-md text-code-md font-semibold text-primary truncate max-w-[240px]">Northeast_MSA_Standard_2024.pdf</span>
+<span class="px-1.5 py-0.2 rounded bg-tertiary-fixed-dim/15 text-tertiary-fixed-dim font-label-telemetry text-[10px] border border-tertiary-fixed-dim/30">p. 14 §4.2</span>
+</div>
+<p class="font-body-sm text-[12px] text-on-surface-variant line-clamp-2">
+            "...enterprise customers reaching Tier 4 annualized committed consumption shall be granted expanded mutual indemnification liability thresholds up to $15,000,000 without additional premium..."
+          </p>
+<div class="flex items-center justify-between pt-1 text-outline font-label-telemetry text-[10px]">
+<span>Similarity: 94.2%</span>
+<div class="w-24 bg-surface-container-highest rounded-full h-1.5 overflow-hidden">
+<div class="bg-tertiary-fixed-dim h-full rounded-full" style="width: 94%;"></div>
+</div>
+</div>
+</div>
+<!-- Chunk Card 2 -->
+<div class="bg-surface-container rounded p-3 border border-surface-variant hover:border-tertiary-fixed-dim/40 transition-colors flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<span class="font-code-md text-code-md font-semibold text-primary truncate max-w-[240px]">Q3_Addendum_Enterprise_Pricing.md</span>
+<span class="px-1.5 py-0.2 rounded bg-tertiary-fixed-dim/15 text-tertiary-fixed-dim font-label-telemetry text-[10px] border border-tertiary-fixed-dim/30">p. 2</span>
+</div>
+<p class="font-body-sm text-[12px] text-on-surface-variant line-clamp-2">
+            "...authorizes field directors to execute up to 7.5% renewal incentives for contracts exceeding 36-month terms executed prior to closing of calendar Q3..."
+          </p>
+<div class="flex items-center justify-between pt-1 text-outline font-label-telemetry text-[10px]">
+<span>Similarity: 88.6%</span>
+<div class="w-24 bg-surface-container-highest rounded-full h-1.5 overflow-hidden">
+<div class="bg-tertiary-fixed-dim h-full rounded-full" style="width: 88%;"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Mini Agent Operational Topology Flow (Inline SVG Topology Graph) -->
+<div class="mt-auto bg-surface-container-low rounded p-3.5 border border-surface-variant flex flex-col gap-2.5">
+<div class="flex items-center justify-between">
+<span class="font-label-telemetry text-label-telemetry uppercase text-outline">Pipeline Topology Map</span>
+<span class="font-code-md text-[10px] text-surface-tint">READY</span>
+</div>
+<div class="w-full bg-surface-container-lowest rounded p-2 border border-surface-variant/60 flex items-center justify-center">
+<svg class="w-full h-24 text-outline" fill="none" viewbox="0 0 320 80" xmlns="http://www.w3.org/2000/svg"><!-- Connecting lines -->
+<path d="M 40 40 L 120 20" stroke="#c5c6ca" stroke-dasharray="3 3" stroke-width="1.5"></path>
+<path d="M 40 40 L 120 60" stroke="#c5c6ca" stroke-dasharray="3 3" stroke-width="1.5"></path>
+<path d="M 170 20 L 250 40" stroke="#c5c6ca" stroke-width="1.5"></path>
+<path d="M 170 60 L 250 40" stroke="#c5c6ca" stroke-width="1.5"></path>
+<!-- Moving Telemetry Particle Animation -->
+<circle fill="#006780" r="3">
+<animatemotion dur="2.4s" path="M 40 40 L 120 20 L 250 40" repeatcount="indefinite"></animatemotion>
+</circle>
+<circle fill="#d36a24" r="3">
+<animatemotion dur="2.8s" path="M 40 40 L 120 60 L 250 40" repeatcount="indefinite"></animatemotion>
+</circle>
+<!-- Node 1: Router -->
+<circle cx="40" cy="40" fill="#ffffff" r="14" stroke="#006780" stroke-width="2"></circle>
+<text fill="#1d1c16" font-family="JetBrains Mono" font-size="9" font-weight="bold" text-anchor="middle" x="40" y="44">RT</text>
+<!-- Node 2: SQL Engine -->
+<rect fill="#ffffff" height="20" rx="3" stroke="#006780" stroke-width="1.5" width="50" x="120" y="10"></rect>
+<text fill="#006780" font-family="JetBrains Mono" font-size="8" font-weight="bold" text-anchor="middle" x="145" y="24">SQL</text>
+<!-- Node 3: Vector Doc -->
+<rect fill="#ffffff" height="20" rx="3" stroke="#d36a24" stroke-width="1.5" width="50" x="120" y="50"></rect>
+<text fill="#d36a24" font-family="JetBrains Mono" font-size="8" font-weight="bold" text-anchor="middle" x="145" y="64">RAG</text>
+<!-- Node 4: Synthesis Aggregator -->
+<circle cx="260" cy="40" fill="#ffffff" r="16" stroke="#1d1c16" stroke-width="2"></circle>
+<text fill="#1d1c16" font-family="JetBrains Mono" font-size="9" font-weight="bold" text-anchor="middle" x="260" y="44">SYN</text></svg>
+</div>
+<div class="flex items-center justify-between text-[10px] font-label-telemetry text-outline px-1">
+<span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-secondary"></span> SQL Node</span>
+<span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-tertiary-fixed-dim"></span> RAG Node</span>
+<span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span> Output Sync</span>
+</div>
+</div>
+</aside>
+</div>
+<!-- Micro-interaction Script for Copy Interaction -->
+<script>
+    document.getElementById('copy-sql-btn')?.addEventListener('click', function() {
+      const btn = this;
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '<span class="material-symbols-outlined text-[14px] text-surface-tint">check</span><span class="font-label-telemetry text-[10px] text-surface-tint">Copied!</span>';
+      setTimeout(() => {
+        btn.innerHTML = originalText;
+      }, 1800);
+    });
+  </script>
+</div></main></div></body></html>

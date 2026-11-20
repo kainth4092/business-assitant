@@ -1,0 +1,47 @@
+# ==============================================================================
+# Production Dockerfile for Business Assistant FastAPI Backend
+# Tech Stack: Python 3.11, OpenJDK JRE (for PySpark jobs), PostgreSQL client
+# ==============================================================================
+
+FROM python:3.11-slim as base
+
+# Prevent Python from writing .pyc files and buffer stdout/stderr
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 \
+    PATH="/usr/lib/jvm/java-17-openjdk-amd64/bin:${PATH}"
+
+WORKDIR /app
+
+# Install system dependencies including OpenJDK 17 for PySpark execution
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openjdk-17-jre-headless \
+    libpq-dev \
+    gcc \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install python requirements
+COPY backend/requirements.txt /app/backend/requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r /app/backend/requirements.txt
+
+# Copy application code
+COPY backend /app/backend
+COPY mcp_server /app/mcp_server
+COPY pipelines /app/pipelines
+COPY docs /app/docs
+COPY data /app/data
+
+# Create non-root system user for security
+RUN useradd -m -u 1000 appuser && \
+    chown -R appuser:appuser /app
+USER appuser
+
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

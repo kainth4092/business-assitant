@@ -1,0 +1,39 @@
+{
+  "status": "SUCCESS",
+  "pipeline": "PySpark BigMart Sales Cleaning",
+  "records_profile": {
+    "raw_total_rows": 1530,
+    "duplicate_rows_removed": 30,
+    "cleaned_total_rows": 1500,
+    "unique_items_count": 247,
+    "unique_outlets_count": 10
+  },
+  "null_imputation_summary": {
+    "item_weight_nulls_before": 226,
+    "item_weight_nulls_after": 0,
+    "outlet_size_nulls_before": 621,
+    "outlet_size_nulls_after": 0
+  },
+  "label_standardization": {
+    "fat_content_labels_before": [
+      "low fat",
+      "reg",
+      " Regular ",
+      "Low Fat",
+      " Low Fat ",
+      "Regular",
+      "LF"
+    ],
+    "fat_content_labels_after": [
+      "Low Fat",
+      "Regular"
+    ]
+  },
+  "sales_summary_metrics": {
+    "total_revenue": 5170839.39,
+    "average_sales_per_item": 3447.23,
+    "min_sales": 181.76,
+    "max_sales": 12818.19,
+    "average_mrp": 150.48
+  }
+}
