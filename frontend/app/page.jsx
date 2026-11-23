@@ -24,7 +24,6 @@ import EvidencePanel from "../components/EvidencePanel";
 import EmptyState from "../components/EmptyState";
 import Composer from "../components/Composer";
 import Timeline from "../components/Timeline";
-import ThemeToggle from "../components/ThemeToggle";
 import DataQualityView from "../components/DataQualityView";
 import DocumentsView from "../components/DocumentsView";
 import SupportDeskView from "../components/SupportDeskView";
@@ -501,8 +500,6 @@ export default function AnalystWorkbenchPage() {
               </button>
             )}
 
-            {/* Dark/Light Theme Toggle */}
-            <ThemeToggle />
           </div>
         </header>
 
