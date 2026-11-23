@@ -161,3 +161,23 @@
   - [x] Add automated zero-mock guardrail tests (`tests/test_zero_mock_guardrails.py`)
   - [x] Run full backend & frontend verification (`pytest`, `npm run lint`, `npm run build`)
   - [x] Write comprehensive beginner usage guide `USAGE.md`
+
+- [x] **Stage 14: Stitch Cleanup & Universal Dynamic Data Ingestion**
+  - [x] **Part 0: Safety & Backup**
+    - [x] Create git branch `backup-before-stitch-cleanup` and commit current state
+    - [x] Restrict operations exclusively within project workspace
+  - [x] **Part 1: Stitch Purge & Cleanup**
+    - [x] Create `STITCH_CLEANUP.md` inventory detailing all files and reasons
+    - [x] Remove `DESIGN.md`, `/design`, `scripts/fetch_stitch_assets.py`
+    - [x] Remove all in-code Stitch references in comments and documentation
+    - [x] Preserve working application components and neutral Tailwind design system
+    - [x] Verify frontend builds and lints cleanly (`npm run lint`, `npm run build` -> 0 errors)
+  - [x] **Part 2: Reset & Universal CSV Pipeline**
+    - [x] Reset generated state: stop/remove Docker containers & volumes, delete Parquet, caches, vector data, tickets/logs
+    - [x] Refactor PySpark pipeline `pipelines/clean_sales.py` to support ANY CSV with auto schema discovery & generic cleaning
+    - [x] Refactor database loading to dynamically create PostgreSQL table from discovered schema
+    - [x] Update backend, MCP tools, agent prompts, and frontend to dynamically query and reflect the real schema
+    - [x] Check `/data` for CSV file; process uploaded dataset (`BigMart_Sales.csv`)
+    - [x] Execute full pipeline on dataset (Docker up, PySpark, Doc Ingestion, MCP, Agent flow, FastAPI, Frontend, Support Desk)
+    - [x] Run full test suite (`pytest` 54/54 passed, `qa_suite.py` 62/62 passed) and resolve any regressions
+    - [x] Generate `FLOW_REPORT.md` and update `USAGE.md`

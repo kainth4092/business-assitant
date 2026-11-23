@@ -19,11 +19,11 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
 from backend.agent.state import AgentState
 from backend.agent.prompts import (
-    ROUTER_SYSTEM_PROMPT, AGENT_SYSTEM_PROMPT, 
+    ROUTER_SYSTEM_PROMPT, AGENT_SYSTEM_PROMPT, get_agent_system_prompt,
     ANSWER_SYSTEM_PROMPT, CHECKER_SYSTEM_PROMPT
 )
 from backend.agent.tools import query_sales_tool, search_docs_tool, get_data_quality_report_tool
-from mcp_server.tools import query_sales, search_docs, get_data_quality_report
+from mcp_server.tools import query_sales, search_docs, get_data_quality_report, get_schema_metadata
 
 load_dotenv()
 logger = logging.getLogger("AgentNodes")
@@ -124,25 +124,47 @@ def router_node(state: AgentState) -> Dict[str, Any]:
 # 2. AGENT NODE (Autonomous Tool Execution)
 # ==============================================================================
 def execute_sql_for_query(query: str) -> Dict[str, Any]:
-    """Generates and executes appropriate SQL based on user question."""
+    """Generates and executes appropriate SQL based on user question and discovered schema."""
+    meta = get_schema_metadata()
+    cols = [c["name"] for c in meta.get("columns", [])]
+    num_cols = meta.get("numeric_columns", [])
+    cat_cols = meta.get("categorical_columns", [])
+    
+    if not cols:
+        return query_sales("SELECT * FROM sales LIMIT 5")
+        
     q = query.lower()
     
-    # Match common business analysis questions
-    if "top 5" in q or "top" in q and "item type" in q:
-        sql = "SELECT item_type, round(sum(item_outlet_sales)::numeric, 2) as total_sales, count(*) as item_count FROM sales GROUP BY item_type ORDER BY total_sales DESC LIMIT 5"
-    elif "dairy" in q and ("outlet" in q or "outlet type" in q or "most" in q):
-        sql = "SELECT outlet_identifier, outlet_type, round(sum(item_outlet_sales)::numeric, 2) as dairy_sales FROM sales WHERE item_type = 'Dairy' GROUP BY outlet_identifier, outlet_type ORDER BY dairy_sales DESC LIMIT 5"
-    elif "highest average" in q or "average item sales" in q or "highest average item" in q:
-        sql = "SELECT outlet_identifier, outlet_type, outlet_location_type, round(avg(item_outlet_sales)::numeric, 2) as avg_sales FROM sales GROUP BY outlet_identifier, outlet_type, outlet_location_type ORDER BY avg_sales DESC LIMIT 5"
-    elif "fat content" in q or "low fat" in q:
-        sql = "SELECT item_fat_content, count(*) as count, round(sum(item_outlet_sales)::numeric, 2) as total_sales, round(avg(item_outlet_sales)::numeric, 2) as avg_sales FROM sales GROUP BY item_fat_content ORDER BY total_sales DESC"
-    elif "outlet type" in q:
-        sql = "SELECT outlet_type, count(*) as total_items, round(sum(item_outlet_sales)::numeric, 2) as total_sales, round(avg(item_outlet_sales)::numeric, 2) as avg_sales FROM sales GROUP BY outlet_type ORDER BY total_sales DESC"
-    elif "mrp" in q:
-        sql = "SELECT item_type, round(avg(item_mrp)::numeric, 2) as avg_mrp, round(min(item_mrp)::numeric, 2) as min_mrp, round(max(item_mrp)::numeric, 2) as max_mrp FROM sales GROUP BY item_type ORDER BY avg_mrp DESC LIMIT 5"
+    # Identify mentioned columns
+    mentioned_cats = [c for c in cat_cols if c.replace("_", " ") in q or c in q]
+    mentioned_nums = [c for c in num_cols if c.replace("_", " ") in q or c in q]
+    
+    primary_cat = mentioned_cats[0] if mentioned_cats else (cat_cols[0] if cat_cols else cols[0])
+    primary_num = mentioned_nums[0] if mentioned_nums else (num_cols[0] if num_cols else None)
+    
+    if "average" in q or "avg" in q:
+        if primary_num:
+            sql = f'SELECT "{primary_cat}", count(*) as count, round(avg("{primary_num}")::numeric, 2) as avg_{primary_num} FROM sales GROUP BY "{primary_cat}" ORDER BY avg_{primary_num} DESC LIMIT 5'
+        else:
+            sql = f'SELECT "{primary_cat}", count(*) as count FROM sales GROUP BY "{primary_cat}" ORDER BY count DESC LIMIT 5'
+    elif "total" in q or "sum" in q or "revenue" in q:
+        if primary_num:
+            sql = f'SELECT "{primary_cat}", count(*) as count, round(sum("{primary_num}")::numeric, 2) as total_{primary_num} FROM sales GROUP BY "{primary_cat}" ORDER BY total_{primary_num} DESC LIMIT 5'
+        else:
+            sql = f'SELECT "{primary_cat}", count(*) as count FROM sales GROUP BY "{primary_cat}" ORDER BY count DESC LIMIT 5'
+    elif "top" in q or "highest" in q:
+        if primary_num:
+            sql = f'SELECT "{primary_cat}", round(sum("{primary_num}")::numeric, 2) as total_{primary_num} FROM sales GROUP BY "{primary_cat}" ORDER BY total_{primary_num} DESC LIMIT 5'
+        else:
+            sql = f'SELECT "{primary_cat}", count(*) as count FROM sales GROUP BY "{primary_cat}" ORDER BY count DESC LIMIT 5'
+    elif "count" in q or "how many" in q:
+        sql = f'SELECT "{primary_cat}", count(*) as count FROM sales GROUP BY "{primary_cat}" ORDER BY count DESC LIMIT 5'
     else:
-        sql = "SELECT item_type, count(*) as items_sold, round(sum(item_outlet_sales)::numeric, 2) as total_sales FROM sales GROUP BY item_type ORDER BY total_sales DESC LIMIT 5"
-        
+        if primary_num:
+            sql = f'SELECT "{primary_cat}", count(*) as count, round(sum("{primary_num}")::numeric, 2) as total_{primary_num} FROM sales GROUP BY "{primary_cat}" ORDER BY total_{primary_num} DESC LIMIT 5'
+        else:
+            sql = f'SELECT "{primary_cat}", count(*) as count FROM sales GROUP BY "{primary_cat}" ORDER BY count DESC LIMIT 5'
+            
     return query_sales(sql)
 
 def agent_node(state: AgentState) -> Dict[str, Any]:
@@ -168,8 +190,11 @@ def agent_node(state: AgentState) -> Dict[str, Any]:
             if feedback:
                 prompt_content += f"\nPrevious attempt feedback for correction: {feedback}"
                 
+            meta = get_schema_metadata()
+            cols_desc = "\n".join([f"- {c['name']} ({c['type']})" for c in meta.get("columns", [])])
+            system_prompt = get_agent_system_prompt(cols_desc)
             response = llm_with_tools.invoke([
-                SystemMessage(content=AGENT_SYSTEM_PROMPT),
+                SystemMessage(content=system_prompt),
                 HumanMessage(content=prompt_content)
             ])
             

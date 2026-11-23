@@ -22,7 +22,7 @@ export default function ChatMessage({
   };
 
   // ----------------------------------------------------------------------------
-  // User Question Entry (Matches Stitch Spec: #QRY-01 badge, Space Grotesk 20px)
+  // User Question Entry
   // ----------------------------------------------------------------------------
   if (isUser) {
     return (

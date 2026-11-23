@@ -1,0 +1,139 @@
+{
+  "table_name": "sales",
+  "dataset_name": "BigMart_Sales.csv",
+  "row_count": 1500,
+  "columns": [
+    {
+      "name": "item_identifier",
+      "type": "TEXT",
+      "is_numeric": false,
+      "is_categorical": true
+    },
+    {
+      "name": "item_weight",
+      "type": "NUMERIC(14, 4)",
+      "is_numeric": true,
+      "is_categorical": false
+    },
+    {
+      "name": "item_fat_content",
+      "type": "TEXT",
+      "is_numeric": false,
+      "is_categorical": true
+    },
+    {
+      "name": "item_visibility",
+      "type": "NUMERIC(14, 4)",
+      "is_numeric": true,
+      "is_categorical": false
+    },
+    {
+      "name": "item_type",
+      "type": "TEXT",
+      "is_numeric": false,
+      "is_categorical": true
+    },
+    {
+      "name": "item_mrp",
+      "type": "NUMERIC(14, 4)",
+      "is_numeric": true,
+      "is_categorical": false
+    },
+    {
+      "name": "outlet_identifier",
+      "type": "TEXT",
+      "is_numeric": false,
+      "is_categorical": true
+    },
+    {
+      "name": "outlet_establishment_year",
+      "type": "NUMERIC(14, 4)",
+      "is_numeric": true,
+      "is_categorical": false
+    },
+    {
+      "name": "outlet_size",
+      "type": "TEXT",
+      "is_numeric": false,
+      "is_categorical": true
+    },
+    {
+      "name": "outlet_location_type",
+      "type": "TEXT",
+      "is_numeric": false,
+      "is_categorical": true
+    },
+    {
+      "name": "outlet_type",
+      "type": "TEXT",
+      "is_numeric": false,
+      "is_categorical": true
+    },
+    {
+      "name": "item_outlet_sales",
+      "type": "NUMERIC(14, 4)",
+      "is_numeric": true,
+      "is_categorical": false
+    }
+  ],
+  "numeric_columns": [
+    "item_weight",
+    "item_visibility",
+    "item_mrp",
+    "outlet_establishment_year",
+    "item_outlet_sales"
+  ],
+  "categorical_columns": [
+    "item_identifier",
+    "item_fat_content",
+    "item_type",
+    "outlet_identifier",
+    "outlet_size",
+    "outlet_location_type",
+    "outlet_type"
+  ],
+  "sample_rows": [
+    {
+      "item_identifier": "DRN41",
+      "item_weight": 15.807,
+      "item_fat_content": "Low Fat",
+      "item_visibility": 0.018739,
+      "item_type": "Canned",
+      "item_mrp": 191.8,
+      "outlet_identifier": "OUT019",
+      "outlet_establishment_year": 1985.0,
+      "outlet_size": "Small",
+      "outlet_location_type": "Tier 1",
+      "outlet_type": "Grocery Store",
+      "item_outlet_sales": 1356.52
+    },
+    {
+      "item_identifier": "DRK70",
+      "item_weight": 12.421,
+      "item_fat_content": "Low Fat",
+      "item_visibility": 0.240402,
+      "item_type": "Soft Drinks",
+      "item_mrp": 226.26,
+      "outlet_identifier": "OUT019",
+      "outlet_establishment_year": 1985.0,
+      "outlet_size": "Small",
+      "outlet_location_type": "Tier 1",
+      "outlet_type": "Grocery Store",
+      "item_outlet_sales": 1855.51
+    },
+    {
+      "item_identifier": "DRE80",
+      "item_weight": 13.58,
+      "item_fat_content": "Low Fat",
+      "item_visibility": 0.055506,
+      "item_type": "Breads",
+      "item_mrp": 53.05,
+      "outlet_identifier": "OUT018",
+      "outlet_establishment_year": 2009.0,
+      "outlet_size": "Medium",
+      "outlet_location_type": "Tier 3",
+      "outlet_type": "Supermarket Type2",
+      "item_outlet_sales": 1372.8
+    }
+  ]
+}

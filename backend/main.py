@@ -113,7 +113,7 @@ def get_system_status():
     has_live_llm = bool(api_key and not api_key.startswith("your_") and not api_key.startswith("mock_"))
     
     available_tools = [
-        {"name": "query_sales", "description": "Read-only SQL query against BigMart sales data", "type": "sql"},
+        {"name": "query_sales", "description": "Read-only SQL query against structured sales data", "type": "sql"},
         {"name": "search_docs", "description": "Semantic search over policy vector embeddings", "type": "rag"},
         {"name": "get_data_quality_report", "description": "PySpark data quality audit metrics", "type": "quality"},
         {"name": "get_ticket_context", "description": "Retrieve support ticket telemetry and context", "type": "support"},
@@ -342,9 +342,9 @@ _SAMPLE_QUESTIONS_CACHE = None
 def get_sample_questions_endpoint():
     """
     Generates dynamic starter questions strictly from real content:
-    - Top sales item types and outlet types from PostgreSQL sales table
+    - Automatically introspects categorical and numeric columns from sales table
+    - Queries top distinct values and aggregations
     - Real document titles from pgvector document_embeddings
-    Cached in memory; zero hardcoded questions.
     """
     global _SAMPLE_QUESTIONS_CACHE
     if _SAMPLE_QUESTIONS_CACHE:
@@ -352,55 +352,63 @@ def get_sample_questions_endpoint():
         
     conn = None
     try:
+        from mcp_server.tools import get_schema_metadata
+        meta = get_schema_metadata()
+        cat_cols = meta.get("categorical_columns", [])
+        num_cols = meta.get("numeric_columns", [])
+        
         conn = get_db_connection(readonly=True)
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
-        # 1. Fetch top sales item types from real sales table
-        cur.execute("""
-            SELECT item_type, ROUND(SUM(item_outlet_sales)::numeric, 2) as total_sales
-            FROM sales
-            GROUP BY item_type
-            ORDER BY total_sales DESC
-            LIMIT 2;
-        """)
-        top_types = cur.fetchall()
+        top_type_name = "Sample Category"
+        second_type_name = "Secondary Category"
+        primary_num = num_cols[0] if num_cols else "sales"
+        primary_cat = cat_cols[0] if cat_cols else "category"
         
-        # 2. Fetch distinct outlet types from sales table
-        cur.execute("""
-            SELECT DISTINCT outlet_type
-            FROM sales
-            ORDER BY outlet_type ASC
-            LIMIT 2;
-        """)
-        outlet_types = cur.fetchall()
+        if cat_cols:
+            try:
+                cur.execute(f"""
+                    SELECT "{primary_cat}", count(*) as count
+                    FROM sales
+                    GROUP BY "{primary_cat}"
+                    ORDER BY count DESC
+                    LIMIT 2;
+                """)
+                rows = cur.fetchall()
+                if rows:
+                    top_type_name = str(rows[0][primary_cat])
+                if len(rows) > 1:
+                    second_type_name = str(rows[1][primary_cat])
+            except Exception:
+                pass
         
-        # 3. Fetch real document titles from document_embeddings
-        cur.execute("""
-            SELECT DISTINCT source_file, title
-            FROM document_embeddings
-            ORDER BY source_file ASC
-            LIMIT 4;
-        """)
-        doc_rows = cur.fetchall()
+        # Fetch real document titles from document_embeddings
+        doc_rows = []
+        try:
+            cur.execute("""
+                SELECT DISTINCT source_file, title
+                FROM document_embeddings
+                ORDER BY source_file ASC
+                LIMIT 4;
+            """)
+            doc_rows = cur.fetchall()
+        except Exception:
+            pass
         cur.close()
-        
-        top_type_name = top_types[0]["item_type"] if top_types else "Fruits and Vegetables"
-        second_type_name = top_types[1]["item_type"] if len(top_types) > 1 else "Snack Foods"
-        outlet_name = outlet_types[0]["outlet_type"] if outlet_types else "Supermarket Type1"
         
         starters = [
             {
                 "num": "01",
-                "label": f"{top_type_name} Revenue Ranking",
-                "caption": f"Calculates total and average sales for {top_type_name} across all retail outlets.",
-                "query": f"What are the total sales and transaction count for {top_type_name}?",
+                "label": f"{top_type_name} Distribution",
+                "caption": f"Calculates total metrics for {top_type_name} in {primary_cat}.",
+                "query": f"What is the total {primary_num} and count for {top_type_name} in {primary_cat}?",
                 "route": "data"
             },
             {
                 "num": "02",
-                "label": f"{outlet_name} Performance",
-                "caption": f"Compares average revenue and transaction volume for {outlet_name} locations.",
-                "query": f"What is the average item outlet sales for {outlet_name}?",
+                "label": f"{second_type_name} Performance",
+                "caption": f"Evaluates records and performance for {second_type_name}.",
+                "query": f"What is the average {primary_num} for {second_type_name}?",
                 "route": "data"
             }
         ]
@@ -427,9 +435,9 @@ def get_sample_questions_endpoint():
             
         starters.append({
             "num": "05",
-            "label": f"{second_type_name} Sales & Compliance",
-            "caption": f"Unifies revenue totals for {second_type_name} with operational store guidelines.",
-            "query": f"What are total sales for {second_type_name}, and what operational return policies apply?",
+            "label": f"{top_type_name} & Policy Rules",
+            "caption": f"Unifies numerical totals for {top_type_name} with operational guidelines.",
+            "query": f"What are total {primary_num} metrics for {top_type_name}, and what operational policies apply?",
             "route": "both"
         })
         

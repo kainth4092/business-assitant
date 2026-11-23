@@ -9,26 +9,24 @@ import json
 from typing import Dict, Any, Optional
 from langchain_core.tools import tool
 
-from mcp_server.tools import query_sales, search_docs, get_data_quality_report
+from mcp_server.tools import query_sales, search_docs, get_data_quality_report, get_schema_metadata
+
+def build_sales_tool_docstring() -> str:
+    meta = get_schema_metadata()
+    cols = meta.get("columns", [])
+    col_str = "\n".join([f"    - {c['name']} ({c['type']})" for c in cols]) if cols else "    - Table schema introspected dynamically."
+    return f"""Executes a read-only SQL SELECT query against the PostgreSQL 'sales' table.
+Discovered Table Schema:
+{col_str}
+
+Safety: ONLY SELECT queries are permitted. Semicolons, comments, and mutations are blocked.
+"""
 
 @tool
 def query_sales_tool(sql_query: str) -> str:
     """
     Executes a read-only SQL SELECT query against the PostgreSQL 'sales' table.
-    The table contains cleaned BigMart sales data with columns:
-    - item_identifier (VARCHAR): unique product code (e.g. 'FDA15')
-    - item_weight (NUMERIC): product weight in kg
-    - item_fat_content (VARCHAR): 'Low Fat' or 'Regular'
-    - item_visibility (NUMERIC): % display area in store
-    - item_type (VARCHAR): product category ('Dairy', 'Soft Drinks', 'Meat', 'Fruits and Vegetables', 'Household', etc.)
-    - item_mrp (NUMERIC): maximum retail price
-    - outlet_identifier (VARCHAR): outlet code ('OUT049', 'OUT018', 'OUT027', etc.)
-    - outlet_establishment_year (INT): year opened
-    - outlet_size (VARCHAR): 'Small', 'Medium', 'High'
-    - outlet_location_type (VARCHAR): 'Tier 1', 'Tier 2', 'Tier 3'
-    - outlet_type (VARCHAR): 'Supermarket Type1', 'Supermarket Type2', 'Supermarket Type3', 'Grocery Store'
-    - item_outlet_sales (NUMERIC): total sales revenue for that item in that outlet
-
+    The table contains cleaned records with dynamically discovered schema.
     Safety: ONLY SELECT queries are permitted. Semicolons, comments, and mutations are blocked.
     """
     result = query_sales(sql_query)

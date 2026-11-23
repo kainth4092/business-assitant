@@ -90,7 +90,44 @@ CREATE TABLE IF NOT EXISTS messages (
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
 
 -- -----------------------------------------------------------------------------
--- 5. Dedicated Read-Only Security Role ('sales_readonly')
+-- 5. Support Tickets & Audit Log
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS support_tickets (
+    id VARCHAR(64) PRIMARY KEY,
+    client_name VARCHAR(128) NOT NULL DEFAULT 'Client User',
+    client_email VARCHAR(128) NOT NULL DEFAULT 'client@example.com',
+    channel VARCHAR(64) NOT NULL DEFAULT 'webhook',
+    message TEXT NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'new',
+    classification VARCHAR(32),
+    confidence NUMERIC(4, 3) DEFAULT 0.000,
+    investigation JSONB DEFAULT '{}'::jsonb,
+    proposed_fix JSONB DEFAULT '{}'::jsonb,
+    sandbox_diff JSONB DEFAULT '{}'::jsonb,
+    test_results JSONB DEFAULT '{}'::jsonb,
+    approval_token VARCHAR(128),
+    reply_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_status ON support_tickets(status);
+
+CREATE TABLE IF NOT EXISTS audit_log (
+    id SERIAL PRIMARY KEY,
+    ticket_id VARCHAR(64) NOT NULL,
+    action VARCHAR(64) NOT NULL,
+    performed_by VARCHAR(128) NOT NULL DEFAULT 'system_agent',
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    before_counts JSONB DEFAULT '{}'::jsonb,
+    after_counts JSONB DEFAULT '{}'::jsonb,
+    details JSONB DEFAULT '{}'::jsonb
+);
+CREATE INDEX IF NOT EXISTS idx_audit_log_ticket_id ON audit_log(ticket_id);
+
+CREATE TABLE IF NOT EXISTS sales_sandbox (LIKE sales INCLUDING ALL);
+
+-- -----------------------------------------------------------------------------
+-- 6. Dedicated Read-Only Security Role ('sales_readonly')
 -- -----------------------------------------------------------------------------
 -- Create the role safely if it does not already exist
 DO

@@ -398,7 +398,7 @@ export default function AnalystWorkbenchPage() {
           isEvidencePanelOpen ? "xl:mr-[420px]" : "mr-0"
         }`}
       >
-        {/* Sticky Top Header (Matches Stitch Spec) */}
+        {/* Sticky Top Header */}
         <header
           className="sticky top-0 z-30 h-14 border-b border-border px-4 sm:px-6 flex items-center justify-between shadow-xs transition-colors"
           style={{ backgroundColor: "var(--bg-surface)" }}

@@ -1,125 +1,186 @@
-# Frontend Design System & Technical Notes (DESIGN_NOTES.md)
+# Design System & Technical Notes: Business Assistant Workbench
 
-**Product**: Business Assistant — Analyst Workbench  
-**Design Philosophy**: Calm, precise, editorial, trustworthy tool for professionals (inspired by Linear, Notion, Observable, and bespoke financial research terminals).  
-**Strict Exclusions**: No purple/blue gradients, no gradient text, no glowing orbs, no glassmorphism, no rounded-2xl bubbly cards, no emoji bullets, no generic chatbot landing page heroes.
+## 1. Design Direction & Product Philosophy
 
----
+The **Business Assistant** interface is designed as an **editorial analyst workbench** (drawing inspiration from tools like *Linear*, *Notion*, and *Observable*), departing completely from generic AI chatbot landing page templates.
 
-## 1. Color System (CSS Variables)
-
-All colors are controlled via CSS variables in `globals.css` and mapped into `tailwind.config.js`.
-
-### Light Theme ("Warm Paper & Dark Ink")
-- `--bg-canvas`: `#FAF8F4` (warm textured paper background)
-- `--bg-surface`: `#FFFFFF` (crisp white card & panel surfaces)
-- `--bg-subtle`: `#F3EFEA` (sidebar, table headers, hovered list rows)
-- `--bg-muted`: `#EAE5DE` (code blocks, tag backgrounds)
-- `--text-primary`: `#1C1B19` (dense charcoal-black ink)
-- `--text-secondary`: `#5E5A54` (readable editorial body copy)
-- `--text-muted`: `#8E8A82` (timestamps, table column headers, metadata)
-- `--border-subtle`: `#EFECE6` (hairline dividers)
-- `--border-default`: `#E2DDD5` (standard 1px container borders)
-- `--border-strong`: `#C8C2B8` (inputs, active states, focus rings)
-- `--accent`: `#0F6B5F` (deep institutional teal for primary actions and active states)
-- `--accent-hover`: `#0B5249` (darker teal on hover)
-- `--accent-subtle`: `#E7F2F0` (light teal tint for route pills and badges)
-- `--accent-text`: `#0F6B5F` (teal text for badges and links)
-- `--accent-contrast`: `#FFFFFF` (pure white text on solid teal buttons)
-- `--success`: `#2E7D32` (verified grounded status)
-- `--success-subtle`: `#EDF7ED`
-- `--warning`: `#B45309` (circuit breaker retries)
-- `--warning-subtle`: `#FEF3C7`
-- `--danger`: `#C53030` (errors, mutation alerts)
-- `--danger-subtle`: `#FEE2E2`
-
-### Dark Theme ("Graphite Desk")
-- `--bg-canvas`: `#141413` (rich graphite paper background)
-- `--bg-surface`: `#1C1B19` (elevated panels and cards)
-- `--bg-subtle`: `#242320` (sidebar, table headers, hovered rows)
-- `--bg-muted`: `#2C2B27` (code blocks, tag backgrounds)
-- `--text-primary`: `#ECE8E1` (soft off-white ink text)
-- `--text-secondary`: `#A8A39A` (readable secondary text)
-- `--text-muted`: `#78736B` (metadata and labels)
-- `--border-subtle`: `#262522` (hairline dividers)
-- `--border-default`: `#32302C` (standard panel borders)
-- `--border-strong`: `#4A4742` (inputs, focus rings)
-- `--accent`: `#1B8A7C` (luminous teal in dark mode)
-- `--accent-hover`: `#25A393`
-- `--accent-subtle`: `#142C28`
-- `--accent-text`: `#4ECDC4`
-- `--accent-contrast`: `#0F1716`
-- `--success`: `#48BB78`
-- `--success-subtle`: `#132E1E`
-- `--warning`: `#F59E0B`
-- `--warning-subtle`: `#33220A`
-- `--danger`: `#F56565`
-- `--danger-subtle`: `#331414`
+### Core Principles
+- **Editorial & Precise**: Dense, calm, trustworthy presentation prioritizing data readability, contrast, and verification over decorative flair.
+- **Audit-First**: Transparent evidence and execution traces are the primary visual feature, proving that the agent uses verifiable SQL queries and pgvector document citations rather than hallucinating.
+- **Log / Document Layout**: The conversation flow avoids bubble chat avatars and instead formats questions as crisp prompt entries (`YOU · Q_01`) and answers as editorial prose with inline citation chips (`[1]`, `[2]`).
+- **No Generative AI Cliches**: Zero purple/pink gradients, neon glowing orbs, blurred backdrop blobs, bubbly rounded-2xl cards, or emojis. Every icon uses `lucide-react` with a clean `1.75px-2px` stroke.
 
 ---
 
-## 2. Typography Hierarchy
+## 2. Color System & Semantic Tokens
 
-Loaded via `next/font/google` for zero-layout-shift and local font bundling:
-1. **Editorial Serif**: `Newsreader` (`--font-serif`)
-   - Used for: App title, session headline, section headers, document titles.
-   - Styling: `font-serif font-medium tracking-tight italic` or `font-serif font-normal`.
-2. **Interface Sans**: `IBM Plex Sans` (`--font-sans`)
-   - Used for: Body prose, button labels, sidebar items, prompts.
-   - Styling: `font-sans text-sm text-secondary leading-relaxed`.
-3. **Analytical Mono**: `IBM Plex Mono` (`--font-mono`)
-   - Used for: SQL blocks, numeric values (`tabular-nums`), tool names, route tags, citations `[1]`, chunk IDs.
-   - Styling: `font-mono text-xs tabular-nums`.
+All styling is built on semantic CSS custom properties defined in `frontend/app/globals.css` and mapped in `frontend/tailwind.config.js`.
+
+### Palette Specifications
+
+| Token Name | Light Theme ("Warm Paper") | Dark Theme ("Slate Editorial") | Usage / Contrast |
+| :--- | :--- | :--- | :--- |
+| `--bg-page` | `#F6F1E7` (Warm paper) | `#12110F` (Deep carbon ink) | Main document background with 3% dot texture |
+| `--bg-surface` | `#FFFDF8` (Warm white surface) | `#1B1A17` (Subtle dark surface) | Cards, sidebars, panels, inputs |
+| `--bg-sunken` | `#EDE6D8` (Sand stone fill) | `#0D0C0B` (Sunken well fill) | Badges, code containers, table headers |
+| `--text-ink` | `#1B1A17` (Near-black ink) | `#F3EEE2` (Off-white parchment) | Headings, primary body prose (AAA > 14:1) |
+| `--text-muted` | `#5E584B` (Dark olive charcoal) | `#B3AC9B` (Warm neutral gray) | Captions, metadata, labels (**AA > 5.27:1**, never faint) |
+| `--border-default` | `#D9D0BC` (1px warm gray border) | `#33302A` (1px dark steel border)| Structural 1px separation lines |
+| `--border-strong` | `#BFB59E` (Darker separation line) | `#47433B` (Stronger dark border) | Active states, hover borders |
+| `--accent` | `#0B6E64` (Deep institutional teal)| `#3FBFAE` (Luminous teal) | Primary button, active tab bar, focus rings |
+
+### Three Route Colors (Used Consistently)
+
+| Route | Primary Color | Soft Tinted Background | Border Accent | Application |
+| :--- | :--- | :--- | :--- | :--- |
+| **DATA** | `#0B6E64` (Dark: `#3FBFAE`) | `rgba(11, 110, 100, 0.11)` | `rgba(11, 110, 100, 0.35)` | SQL queries, sales tables, data starters |
+| **DOCS** | `#B45309` (Dark: `#F59E0B`) | `rgba(180, 83, 9, 0.11)` | `rgba(180, 83, 9, 0.35)` | pgvector retrieval, policies, doc starters |
+| **BOTH** | `#3B3F8F` (Dark: `#818CF8`) | `rgba(59, 63, 143, 0.11)` | `rgba(59, 63, 143, 0.35)` | Hybrid SQL + RAG questions, synthesis |
+
+### Semantic Tokens
+- **Success**: `#15803D` (Light) / `#4ADE80` (Dark) with 10% tinted background.
+- **Warning**: `#B45309` (Light) / `#FBBF24` (Dark) with 10% tinted background.
+- **Error**: `#B91C1C` (Light) / `#F87171` (Dark) with 10% tinted background.
 
 ---
 
-## 3. Shape, Depth & Grid Rules
+## 3. Typography Hierarchy
 
-- **Corner Radii**:
-  - `rounded-sm` (3px): Buttons, tags, citations, chips.
-  - `rounded` (5px): Inputs, code blocks, cards.
-  - `rounded-md` (8px): Main panel containers and modals.
-  - No `rounded-2xl` or pill buttons.
-- **Borders & Shadows**:
-  - `1px solid var(--border-default)` on all containers.
-  - Box shadows: `none` or ultra-subtle `0 1px 2px rgba(0,0,0,0.04)`.
-  - No blur filters (`backdrop-blur`), no glowing outlines.
-- **Spacing System**: Strict 4px / 8px grid (`p-2`, `p-3`, `p-4`, `p-6`).
+Fonts are loaded locally via `next/font/google` with zero layout shift:
+
+1. **Headings & App Identity (`--font-serif`)**: `Newsreader` (weights: 400, 500, 600, style: normal & italic).
+   - Page Title: `30-34px` (`font-serif font-semibold text-title`).
+   - Card Titles & Section Headings: `16-18px font-bold`.
+2. **Interface & Prose (`--font-sans`)**: `IBM Plex Sans` (weights: 400, 500, 600).
+   - Section Labels: `12px` uppercase with `0.08em` letter-spacing in `#5E584B` (WCAG AA).
+   - Body Text: `15px / 1.6` line-height for comfortable editorial reading.
+   - Tag Badges: `11.5px font-bold` with `0.02em` tracking.
+3. **Data, Code, & Tool Traces (`--font-mono`)**: `IBM Plex Mono` (weights: 400, 500, 600, tabular figures).
+   - Used for SQL query blocks, row counts, cosine distance metrics, file paths (`docs/*.md`), and tool execution logs.
 
 ---
 
-## 4. Layout Architecture (3-Pane Analyst Workbench)
+## 4. Spacing, Geometry & Visual Depth
+
+- **Spacing Grid**: Strict 4px / 8px scale (`gap-1` = 4px, `gap-2` = 8px, `gap-3` = 12px, `gap-4` = 16px, `p-6` = 24px).
+- **Border Radii**: Restrained radii (`rounded-sm`: 4px, `rounded`: 6px, `rounded-md`: 8px).
+- **Depth**: True 1px borders combined with layered surfaces (`bg-page` -> `bg-surface` -> `bg-sunken`) and subtle shadow levels:
+  - `shadow-card`: `0 1px 2px rgba(0,0,0,.05), 0 8px 24px -12px rgba(0,0,0,.12)`
+  - `shadow-composer`: `0 2px 4px rgba(0,0,0,.04), 0 12px 32px -12px rgba(0,0,0,.16)`
+- **Background Texture**: 3.5% opacity dot-grid radial pattern (`radial-gradient(var(--dot-pattern) 1px, transparent 1px)`) sized at 20px x 20px.
+
+---
+
+## 5. Motion Rules & Timing
+
+All animations are lightweight, subtle, and respect `prefers-reduced-motion`:
+- **Staggered Page Load**: Hero, stat tiles, and starter rows animate with 60ms stagger, 300ms duration, and 8px translate (`animate-fade-up`).
+- **Interactive Hovers**: Starter row lifts 2px (`hover:-translate-y-0.5`), shadow increases, and right arrow slides (`group-hover:translate-x-1`) in 150ms.
+- **Button Press**: Active button press scales to `0.98` (`active:scale-[0.98]`).
+- **Segmented Control**: Sliding highlight pill between Auto, Data, Docs, and Both.
+- **Agent Execution**: Step-by-step status line with glowing soft pulse node (`animate-pulse-soft`) and sequential trace timeline illumination. NO bouncing dots or spinner-only loading.
+- **Count-Up Animation**: Stat tiles (sales rows, policy chunks, tools) animate from 0 to target over 600ms once on initial mount.
+- **Theme Switcher**: Smooth 150-200ms color transition across CSS variables.
+- **Speed Cap**: No animation exceeds 400ms (except the 600ms count-up).
+
+---
+
+## 6. Three-Pane Workbench Architecture
 
 ```
-┌─────────────────┬───────────────────────────────────┬───────────────────────────────┐
-│  SLIM SIDEBAR   │        MAIN CONVERSATION          │        EVIDENCE PANEL         │
-│     (240px)     │             (Flex-1)              │            (360px)            │
-├─────────────────┼───────────────────────────────────┼───────────────────────────────┤
-│ • App Branding  │ Top status breadcrumb             │ • Route Chosen (DATA/DOCS/BOTH│
-│   (Newsreader)  │ ───────────────────────────────── │ • Tools Called Chain          │
-│ • Tabs:         │ Conversation Log / Document View: │ • SQL Statement (Syntax Mono) │
-│   - Analysis    │ • Q_01: User question             │ • Tabular Query Result        │
-│   - Data Quality│ • Assistant editorial synthesis   │ • Policy Document Chunks      │
-│   - Documents   │   with citations [1] [2]          │ • Verification & Retries (0/2)│
-│ • Session Log   │ ───────────────────────────────── │                               │
-│ • System Status │ Dynamic Input Bar + Status Step   │                               │
-│ • Theme Toggle  │ ("Routing" -> "SQL" -> "Checking")│                               │
-└─────────────────┴───────────────────────────────────┴───────────────────────────────┘
++-------------------+-----------------------------------+-----------------------+
+|  SLIM SIDEBAR     |      MAIN CONVERSATION COLUMN     |    EVIDENCE PANEL     |
+|  (256px fixed)    |         (Editorial Log View)      |   (384px fixed/sheet) |
+|                   |                                   |                       |
+| - Logo Mark (SVG) | - Sticky breadcrumb bar           | - Tabs: Trace, SQL,   |
+| - "New Analysis"  | - Hero with 3 Stat Tiles          |   Results, Sources    |
+| - 3px Accent Bar  | - 5 Route-Bordered Starters       | - Vertical Timeline   |
+|   Active Nav Items| - Q_01, Q_02 question entries     |   with colored nodes  |
+| - Session History | - Answer card with route border   | - Syntax SQL + Copy   |
+| - High-contrast   | - Inline citation chips [1], [2]  | - Zebra table results |
+|   telemetry card  | - Real-time StatusLine progress   | - Vector chunks with  |
+| - Theme Toggle    | - Raised Composer with Segmented  |   cosine similarity   |
+|                   |   Route Selector (Auto/Data/Docs) | - Groundedness badge  |
++-------------------+-----------------------------------+-----------------------+
 ```
+
+### Mobile & Tablet Adaptation
+- On screens `< 1024px` (LG), the sidebar collapses into a slide-over drawer accessible via the top-left hamburger menu.
+- On screens `< 640px` (mobile), the Evidence panel opens as a responsive bottom sheet (`max-h-[82vh] rounded-t-xl`) with drag handle, preventing any horizontal overflow on 390px mobile screens. On tablet (640-1280px), it opens as a slide-over drawer.
 
 ---
 
-## 5. Component Modularization
+## 7. Component Directory
 
-- `components/Sidebar.jsx`: Navigation, app branding, history, system status pill, theme toggle.
-- `components/ChatMessage.jsx`: User question row + Assistant document-style response with inline citation chips.
-- `components/EvidencePanel.jsx`: Dedicated right pane with route, tool chain, SQL block, table, document chunks.
-- `components/SqlBlock.jsx`: Monospace syntax-highlighted SQL block with copy button and feedback.
-- `components/DataTable.jsx`: Compact analytical table with tabular numbers.
-- `components/SourceChip.jsx`: Inline citations `[1]`, `[2]` and document badge chips.
-- `components/QualityBars.jsx`: Plain CSS before/after metric comparison bars.
-- `components/ThemeToggle.jsx`: Accessible dark/light mode toggle with localStorage persistence.
-- `components/EmptyState.jsx`: Clean list of sample queries with category badges (`[DATA]`, `[DOCS]`, `[BOTH]`).
-- `components/DataQualityView.jsx`: PySpark ETL audit report with summary cards and comparison bars.
-- `components/DocumentsView.jsx`: Company policy knowledge base inventory.
-- `components/StatusLine.jsx`: Real-time streaming status steps during agent execution.
+| Component | File Path | Key Polish & Features |
+| :--- | :--- | :--- |
+| `Sidebar` | `frontend/components/Sidebar.jsx` | Overlapping square SVG logo, 3px left border on active nav item, real counters, high-contrast Postgres telemetry card, theme toggle. |
+| `EmptyState` | `frontend/components/EmptyState.jsx` | 30px Newsreader title, capabilities strip with 3 stat tiles (sales rows, chunks, tools) with 600ms count-up, 5 starters with route-colored left borders and hover lift. |
+| `ChatMessage` | `frontend/components/ChatMessage.jsx` | `YOU · Q_01` user prompt line, assistant answer card with 3.5px left border in route color, route pill, inline clickable citation chips, copy button. |
+| `EvidencePanel` | `frontend/components/EvidencePanel.jsx` | 4 Tabs (`Trace`, `SQL`, `Results`, `Sources`), vertical execution timeline with colored step nodes, groundedness status, syntax SQL, zebra results table. |
+| `SqlBlock` | `frontend/components/SqlBlock.jsx` | Dark terminal mono block, high-contrast keyword highlighting (`SELECT`, `SUM`, `GROUP BY`), copy button with toast feedback. |
+| `DataTable` | `frontend/components/DataTable.jsx` | Zebra striping, right-aligned tabular figures for numbers, row count badge, clean borders. |
+| `SourceChip` | `frontend/components/SourceChip.jsx` | High-contrast interactive inline chip opening matching vector chunk in evidence panel. |
+| `QualityBars` | `frontend/components/QualityBars.jsx` | High-contrast before/after comparison bars with bold tabular figures and accent progress. |
+| `StatusLine` | `frontend/components/StatusLine.jsx` | Multi-step progress indicator with soft pulsing node (no bouncing dots). |
+| `DataQualityView` | `frontend/components/DataQualityView.jsx` | PySpark ETL audit with big numbers, null imputations, fat content standardization cards, and before/after comparison bars. |
+| `DocumentsView` | `frontend/components/DocumentsView.jsx` | High-contrast pgvector catalog, chunk statistics, search filter, and instant query buttons. |
+| `ThemeToggle` | `frontend/components/ThemeToggle.jsx` | High-contrast Light/Dark switch with smooth transitions. |
+| `page.jsx` | `frontend/app/page.jsx` | 3-pane workbench layout, raised composer card with segmented route control (Auto / Data / Docs / Both), mobile bottom sheet support. |
+
+---
+
+## 8. Verification & Build Confirmation
+
+- **TypeScript Free**: Verified 100% JavaScript (`.jsx`).
+- **ESLint**: Passed with `0 warnings, 0 errors` via Next.js core web vitals.
+- **Production Build**: Verified with `npm run build` yielding fully optimized standalone static bundles (`18.8 kB` index route, `106 kB` first load JS).
+- **Contrast Check**: All secondary texts verified to exceed WCAG AA (`#5E584B` on `#F6F1E7` = 5.27:1; `#B3AC9B` on `#1B1A17` = 6.45:1).
+
+
+---
+
+## 9. Design System Implementation ("Live Agent Business Assistant")
+
+The frontend follows a telemetry-driven, high-contrast operating environment:
+
+### 9.1 Dual-Theme Architecture
+- **Light Theme ("Warm Technical Dossier")**:
+  - Page: `#F6F1E7`
+  - Surfaces: `#FAF6EE` (base), `#FFFFFF` (lowest), `#F8F3E9` (low), `#F2EDE3` (container), `#EDE8DE` (high), `#E7E2D8` (highest)
+  - Ink / Primary Text: `#181C22`, Muted Text: `#5A6578` (WCAG AAA / AA compliant)
+  - Accent Color: Chartreuse / Lime `#84CC16`
+  - Data / SQL Accent: Cyan `#0891B2`
+  - Docs / RAG Accent: Amber `#B45309`
+  - Success / Grounded: Emerald `#059669`
+
+- **Dark Theme ("Modern HUD & Technical Brutalism")**:
+  - Page: `#0E1116`
+  - Surfaces: `#161B22` (base), `#0B0E13` (lowest), `#191C21` (low), `#1D242D` (container), `#272A30` (high), `#32353A` (highest)
+  - Ink / Primary Text: `#F0F6FC`, Muted Text: `#8B949E`
+  - Accent Color: Electric Lime `#C6F432` (`#C5F331`)
+  - Data / SQL Accent: Bright Cyan `#22D3EE`
+  - Docs / RAG Accent: Amber `#F59E0B`
+  - Success / Grounded: Emerald `#10B981`
+
+### 9.2 Typography Architecture (Google Fonts via `next/font/google`)
+- **Headlines & Metric Display**: `Space Grotesk` (weights 600, 700) (`--font-headline`)
+- **Body & Prose**: `IBM Plex Sans` (weights 400, 500, 600) (`--font-body`)
+- **Telemetry, Code & Numbers**: `JetBrains Mono` (weights 400, 500, 700) (`--font-mono`)
+
+### 9.3 Component Directory
+- `Sidebar.jsx`: 72px fixed utility rail with geometric mark, vertical tab stack with notification badges, day/dark theme toggle, and live cluster latency indicator. Full mobile drawer overlay for `<1024px`.
+- `StatTile.jsx`: Telemetry card with 600ms count-up, semantic icon badge, and accent left border.
+- `StarterRow.jsx`: Inquiry card with 2px hover lift, route pill badge, and sliding arrow.
+- `SegmentedControl.jsx`: Route selector with `framer-motion` sliding pill (`layoutId`).
+- `Composer.jsx`: Raised card with auto-resizing textarea, shift+enter hint, and Electric Lime execute button.
+- `ChatMessage.jsx`: User questions with `#QRY-01` badge and Space Grotesk headline; Assistant answers in left-lime border card with streaming cursor and citation chips.
+- `EvidencePanel.jsx`: 420px desktop fixed panel and mobile bottom sheet featuring:
+  - Vertical Inference Call Stack with traveling pulse animation.
+  - Dark terminal SQL code block with execution time and copy button.
+  - Tabular snippet with monospaced figures.
+  - Vector chunk cards with similarity score bars.
+  - Animated SVG Pipeline Topology Map with moving telemetry particles (`animateMotion`).
+- `Timeline.jsx`: Multi-agent pipeline tracker supporting horizontal dispatch flow and vertical inference call stack.
+- `DataQualityView.jsx`: Global Health Index radial SVG ring, delta convergence bars, Spark 3.5 engine profile, and automated schema invariant table.
+- `SupportDeskView.jsx`, `TicketList.jsx`, `TicketDetail.jsx`: 4 KPI strips, backlog list, 7-step LangGraph node pipeline tracker, unified diff / SQL fix view, and HITL approval controls.

@@ -152,7 +152,26 @@ This log records all technical, architectural, and design decisions made for the
 
 ---
 
-### Decision 15: Zero-Mock & Live-Data Transition Architecture
+### Decision 16: Stitch Cleanup & Neutral Theme Preservation
+- **Context**: The Stitch integration artifacts (`DESIGN.md`, `/design`, `scripts/fetch_stitch_assets.py`, and Stitch project references) were added during design exploration and needed to be purged.
+- **Decision**: Remove all exported Stitch files, HTML mockups, screenshots, and asset fetch scripts. Documented every removal in `STITCH_CLEANUP.md`. Preserved the neutral CSS token architecture (`--bg-surface`, `--text-primary`, `--border-default`, etc.) and active UI components to ensure zero visual regression and full feature retention.
+- **Consequences**: Pure, self-contained Next.js frontend without obsolete external design artifacts or credentials.
+
+---
+
+### Decision 17: Schema-Agnostic PySpark ETL & Dynamic Agent SQL Architecture
+- **Context**: The previous pipeline and agent prompts had hardcoded BigMart column names (`Item_Fat_Content`, `Item_Weight`, `Item_Outlet_Sales`, `Outlet_Size`, etc.). The system must now accept ANY uploaded CSV, automatically discover its schema, clean it dynamically, create the table in PostgreSQL, and provide the real introspected schema to the agent and frontend.
+- **Decision**:
+  1. **Dynamic Schema Discovery in PySpark**: Scan `/data/*.csv`. Infer types, classify columns into numeric, categorical, date/time, and identifier.
+  2. **Generic Cleaning**: Auto-strip strings, normalize casing for low-cardinality columns, impute numeric nulls with column median, impute categorical nulls with "Unknown", deduplicate exact rows.
+  3. **Dynamic PostgreSQL Table Creation**: Generate DDL for table `sales` based on discovered sanitized columns and types; load cleaned data and grant `sales_readonly` SELECT privileges.
+  4. **Dynamic Schema Reflection**: Expose table schema via `GET /status` and agent tools so the LangGraph agent receives the exact columns, sample values, and column types in its prompt.
+  5. **Dynamic Starter Questions & Data Quality Report**: Derive starter analytical queries dynamically from discovered column names (e.g. `SUM(<numeric>) GROUP BY <categorical>`).
+- **Consequences**: Business Assistant can ingest and analyze any tabular dataset out of the box with zero code changes.
+
+---
+
+### Decision 18: Zero-Mock Data Authenticity & Real Dynamic Telemetry
 - **Context**: The user required a complete audit and removal of all static, hardcoded, mock, fake, and placeholder data from the running application. Everything displayed to the user must originate from real PostgreSQL tables, pgvector embeddings, PySpark ETL audit reports, or genuine user interactions.
 - **Decision**:
   1. **Backend Status & Telemetry (`GET /status`)**:
@@ -180,3 +199,13 @@ This log records all technical, architectural, and design decisions made for the
   8. **One-Command Setup (`scripts/setup.sh` and `make setup`)**:
      - Automates container startup, database schema initialization, PySpark ETL execution, and document vector ingestion in a single idempotent script.
 - **Consequences**: Guarantees complete data authenticity, eliminates silent mock fallbacks, and ensures a fresh clone seamlessly operates on real BigMart data and real policy documents.
+
+---
+
+### Decision 19: Elimination of Redundant UI Controls & Automatic Stale Vector Purge
+- **Context**: A duplicate theme switch was present in the top header beside the evidence toggle, creating visual redundancy. In addition, repeated vector ingestions without prior deletion led to stale embedding chunks accumulating when documents were removed or modified.
+- **Decision**:
+  1. Removed the redundant `<ThemeToggle />` component from the top bar in `frontend/app/page.jsx`, consolidating theme switching strictly into the fixed sidebar utility rail (`frontend/components/Sidebar.jsx`).
+  2. Enhanced `pipelines/ingest_docs.py` to truncate `document_embeddings` on full directory ingestion runs, ensuring that if files are removed or re-chunked, obsolete embeddings are immediately purged.
+  3. Standardized categorical variant normalization in `pipelines/clean_sales.py` across string columns to handle common label variants (such as `LF`/`low fat` -> `Low Fat`, `reg` -> `Regular`) without hardcoded column names.
+- **Consequences**: Clean, unambiguous UI layout conforming strictly to single-control UX guidelines, and guaranteed 1:1 vector chunk fidelity matching the physical `docs/` folder.

@@ -155,6 +155,10 @@ def ingest_all_docs(docs_dir: str = "docs") -> int:
     conn = psycopg2.connect(db_url)
     cursor = conn.cursor()
     
+    # Clean stale embeddings on fresh batch ingestion
+    cursor.execute("TRUNCATE TABLE document_embeddings;")
+    conn.commit()
+    
     insert_sql = """
         INSERT INTO document_embeddings (
             chunk_id, source_file, title, content, chunk_index, total_chunks, embedding

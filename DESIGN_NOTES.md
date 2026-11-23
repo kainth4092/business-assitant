@@ -140,11 +140,11 @@ All animations are lightweight, subtle, and respect `prefers-reduced-motion`:
 
 ---
 
-## 9. Stitch Design System Implementation ("Live Agent Business Assistant")
+## 9. Design System Implementation ("Live Agent Business Assistant")
 
-In accordance with the project specification, the entire frontend was rebuilt to match the design system from the Stitch workspace project `projects/16089620894539968109` ("Live Agent Business Assistant").
+The frontend follows a telemetry-driven, high-contrast operating environment:
 
-### 9.1 Extracted Dual-Theme Philosophy
+### 9.1 Dual-Theme Architecture
 - **Light Theme ("Warm Technical Dossier")**:
   - Page: `#F6F1E7`
   - Surfaces: `#FAF6EE` (base), `#FFFFFF` (lowest), `#F8F3E9` (low), `#F2EDE3` (container), `#EDE8DE` (high), `#E7E2D8` (highest)
@@ -168,7 +168,7 @@ In accordance with the project specification, the entire frontend was rebuilt to
 - **Body & Prose**: `IBM Plex Sans` (weights 400, 500, 600) (`--font-body`)
 - **Telemetry, Code & Numbers**: `JetBrains Mono` (weights 400, 500, 700) (`--font-mono`)
 
-### 9.3 Rebuilt Component Directory
+### 9.3 Component Directory
 - `Sidebar.jsx`: 72px fixed utility rail with geometric mark, vertical tab stack with notification badges, day/dark theme toggle, and live cluster latency indicator. Full mobile drawer overlay for `<1024px`.
 - `StatTile.jsx`: Telemetry card with 600ms count-up, semantic icon badge, and accent left border.
 - `StarterRow.jsx`: Inquiry card with 2px hover lift, route pill badge, and sliding arrow.
@@ -182,5 +182,5 @@ In accordance with the project specification, the entire frontend was rebuilt to
   - Vector chunk cards with similarity score bars.
   - Animated SVG Pipeline Topology Map with moving telemetry particles (`animateMotion`).
 - `Timeline.jsx`: Multi-agent pipeline tracker supporting horizontal dispatch flow and vertical inference call stack.
-- `DataQualityView.jsx`: Matches Stitch screen `d1f35...` with Global Health Index radial SVG ring (96%), delta convergence bars, Spark 3.5 engine profile, and automated schema invariant table.
-- `SupportDeskView.jsx`, `TicketList.jsx`, `TicketDetail.jsx`: Matches Stitch screen `8c88...` with 4 KPI strips, backlog list, 7-step LangGraph node pipeline tracker, unified diff / SQL fix view, and HITL approval controls.
+- `DataQualityView.jsx`: Global Health Index radial SVG ring, delta convergence bars, Spark 3.5 engine profile, and automated schema invariant table.
+- `SupportDeskView.jsx`, `TicketList.jsx`, `TicketDetail.jsx`: 4 KPI strips, backlog list, 7-step LangGraph node pipeline tracker, unified diff / SQL fix view, and HITL approval controls.

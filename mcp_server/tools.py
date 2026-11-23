@@ -243,3 +243,52 @@ def get_data_quality_report() -> Dict[str, Any]:
             "status": "ERROR",
             "error": str(e)
         }
+
+def get_schema_metadata() -> Dict[str, Any]:
+    """
+    Returns the dynamic schema metadata for the loaded PostgreSQL 'sales' table.
+    Inspects data/schema_metadata.json if available, or queries PostgreSQL directly.
+    """
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    meta_path = os.path.join(base_dir, "data", "schema_metadata.json")
+    if os.path.exists(meta_path):
+        try:
+            with open(meta_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.warning(f"Failed to read schema_metadata.json: {e}")
+            
+    # Direct PostgreSQL fallback
+    readonly_url = os.environ.get(
+        "READONLY_DATABASE_URL",
+        "postgresql://sales_readonly:readonly_password@localhost:5434/business_assistant"
+    )
+    conn = None
+    try:
+        conn = psycopg2.connect(readonly_url)
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""
+            SELECT column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_schema = 'public' AND table_name = 'sales' 
+            ORDER BY ordinal_position;
+        """)
+        cols = cur.fetchall()
+        cur.close()
+        columns = [
+            {"name": c["column_name"], "type": c["data_type"]}
+            for c in cols if c["column_name"] not in ("id", "created_at")
+        ]
+        return {
+            "table_name": "sales",
+            "columns": columns,
+            "numeric_columns": [c["name"] for c in columns if "int" in c["type"] or "numeric" in c["type"] or "double" in c["type"]],
+            "categorical_columns": [c["name"] for c in columns if "text" in c["type"] or "char" in c["type"]]
+        }
+    except Exception as err:
+        logger.warning(f"Could not inspect schema from PostgreSQL: {err}")
+        return {"table_name": "sales", "columns": [], "numeric_columns": [], "categorical_columns": []}
+    finally:
+        if conn:
+            conn.close()
+

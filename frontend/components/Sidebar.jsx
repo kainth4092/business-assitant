@@ -62,7 +62,7 @@ export default function Sidebar({
   return (
     <>
       {/* -------------------------------------------------------------------- */}
-      {/* 1. DESKTOP 72px UTILITY RAIL (Matches Stitch Spec)                   */}
+      {/* 1. DESKTOP 72px UTILITY RAIL                                         */}
       {/* -------------------------------------------------------------------- */}
       <aside className="fixed left-0 top-0 h-full w-[72px] bg-surface-highest border-r border-border z-40 hidden lg:flex flex-col justify-between items-center py-3.5 select-none transition-colors">
         {/* Top: Logo & Nav items */}

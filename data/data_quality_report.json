@@ -1,12 +1,14 @@
 {
   "status": "SUCCESS",
-  "pipeline": "PySpark BigMart Sales Cleaning",
+  "pipeline": "PySpark Universal CSV Cleaning & Quality Audit",
+  "input_dataset": "BigMart_Sales.csv",
   "records_profile": {
     "raw_total_rows": 1530,
     "duplicate_rows_removed": 30,
     "cleaned_total_rows": 1500,
-    "unique_items_count": 247,
-    "unique_outlets_count": 10
+    "column_count": 12,
+    "numeric_column_count": 5,
+    "categorical_column_count": 7
   },
   "null_imputation_summary": {
     "item_weight_nulls_before": 226,
@@ -14,26 +16,214 @@
     "outlet_size_nulls_before": 621,
     "outlet_size_nulls_after": 0
   },
-  "label_standardization": {
-    "fat_content_labels_before": [
-      "low fat",
-      "reg",
-      " Regular ",
-      "Low Fat",
-      " Low Fat ",
-      "Regular",
-      "LF"
-    ],
-    "fat_content_labels_after": [
-      "Low Fat",
-      "Regular"
-    ]
+  "columns_profile": [
+    {
+      "name": "item_identifier",
+      "type": "StringType()",
+      "nulls_before": 0,
+      "nulls_after": 0
+    },
+    {
+      "name": "item_weight",
+      "type": "DoubleType()",
+      "nulls_before": 226,
+      "nulls_after": 0
+    },
+    {
+      "name": "item_fat_content",
+      "type": "StringType()",
+      "nulls_before": 0,
+      "nulls_after": 0
+    },
+    {
+      "name": "item_visibility",
+      "type": "DoubleType()",
+      "nulls_before": 0,
+      "nulls_after": 0
+    },
+    {
+      "name": "item_type",
+      "type": "StringType()",
+      "nulls_before": 0,
+      "nulls_after": 0
+    },
+    {
+      "name": "item_mrp",
+      "type": "DoubleType()",
+      "nulls_before": 0,
+      "nulls_after": 0
+    },
+    {
+      "name": "outlet_identifier",
+      "type": "StringType()",
+      "nulls_before": 0,
+      "nulls_after": 0
+    },
+    {
+      "name": "outlet_establishment_year",
+      "type": "DoubleType()",
+      "nulls_before": 0,
+      "nulls_after": 0
+    },
+    {
+      "name": "outlet_size",
+      "type": "StringType()",
+      "nulls_before": 621,
+      "nulls_after": 0
+    },
+    {
+      "name": "outlet_location_type",
+      "type": "StringType()",
+      "nulls_before": 0,
+      "nulls_after": 0
+    },
+    {
+      "name": "outlet_type",
+      "type": "StringType()",
+      "nulls_before": 0,
+      "nulls_after": 0
+    },
+    {
+      "name": "item_outlet_sales",
+      "type": "DoubleType()",
+      "nulls_before": 0,
+      "nulls_after": 0
+    }
+  ],
+  "numeric_summaries": {
+    "item_weight": {
+      "min": 4.55,
+      "max": 21.5,
+      "avg": 13.04,
+      "sum": 19564.31
+    },
+    "item_visibility": {
+      "min": 0.0,
+      "max": 0.28,
+      "avg": 0.13,
+      "sum": 200.45
+    },
+    "item_mrp": {
+      "min": 30.46,
+      "max": 266.27,
+      "avg": 150.48,
+      "sum": 225717.55
+    },
+    "outlet_establishment_year": {
+      "min": 1985.0,
+      "max": 2009.0,
+      "avg": 1997.77,
+      "sum": 2996656.0
+    },
+    "item_outlet_sales": {
+      "min": 181.76,
+      "max": 12818.19,
+      "avg": 3447.23,
+      "sum": 5170839.39
+    }
   },
-  "sales_summary_metrics": {
-    "total_revenue": 5170839.39,
-    "average_sales_per_item": 3447.23,
-    "min_sales": 181.76,
-    "max_sales": 12818.19,
-    "average_mrp": 150.48
+  "categorical_summaries": {
+    "item_identifier": {
+      "distinct_count": 247,
+      "top_values": [
+        {
+          "DRL86": 13
+        },
+        {
+          "NCN63": 12
+        },
+        {
+          "NCU06": 12
+        },
+        {
+          "FDC82": 12
+        },
+        {
+          "DRX17": 11
+        }
+      ]
+    },
+    "item_fat_content": {
+      "distinct_count": 2,
+      "top_values": [
+        {
+          "Low Fat": 1018
+        },
+        {
+          "Regular": 482
+        }
+      ]
+    },
+    "item_type": {
+      "distinct_count": 16,
+      "top_values": [
+        {
+          "Frozen Foods": 148
+        },
+        {
+          "Canned": 136
+        },
+        {
+          "Seafood": 122
+        },
+        {
+          "Breakfast": 116
+        },
+        {
+          "Hard Drinks": 116
+        }
+      ]
+    },
+    "outlet_identifier": {
+      "distinct_count": 10,
+      "top_values": [
+        {
+          "OUT035": 191
+        },
+        {
+          "OUT017": 170
+        },
+        {
+          "OUT049": 152
+        },
+        {
+          "OUT027": 146
+        },
+        {
+          "OUT018": 144
+        }
+      ]
+    },
+    "outlet_size": {
+      "distinct_count": 4,
+      "top_values": [
+        {
+          "Unknown": 607
+        },
+        {
+          "Small": 397
+        },
+        {
+          "Medium": 379
+        },
+        {
+          "High": 117
+        }
+      ]
+    },
+    "outlet_location_type": {
+      "distinct_count": 3,
+      "top_values": [
+        {
+          "Tier 3": 568
+        },
+        {
+          "Tier 2": 501
+        },
+        {
+          "Tier 1": 431
+        }
+      ]
+    }
   }
 }
