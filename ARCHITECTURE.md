@@ -268,3 +268,9 @@ sequenceDiagram
     Graph->>Audit: Inserts immutable entry (actor, diff, timestamp)
     Graph->>Client: Node 7: Dispatches formatted resolution notice
 ```
+
+---
+
+## 7. Project Init (Codebase RAG) Architecture
+
+See [PHASE1_DESIGN.md](file:///home/kanish/Documents/business-assistant/PHASE1_DESIGN.md) for the complete schema, AST chunking pipeline, incremental git-diff + content-hash tracker, defense-in-depth secret exclusion rules, hybrid pgvector HNSW + `tsvector` retrieval, read-only MCP tools (`list_projects`, `search_code`, `get_file_outline`, `find_symbol`), and FastAPI `/projects/*` endpoints stored cleanly inside the isolated `code_rag` PostgreSQL schema.

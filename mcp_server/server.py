@@ -19,6 +19,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mcp.server.mcpserver import MCPServer
 from mcp_server.tools import query_sales, search_docs, get_data_quality_report
+from mcp_server.code_tools import (
+    search_code as _search_code,
+    get_file_outline as _get_file_outline,
+    find_symbol as _find_symbol,
+    list_projects as _list_projects,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("MCPServer")
@@ -58,6 +64,42 @@ def tool_get_data_quality_report() -> str:
     """
     result = get_data_quality_report()
     return json.dumps(result, indent=2)
+
+
+@app.tool()
+def list_projects() -> str:
+    """
+    List all projects configured in projects.yaml along with their indexing status,
+    last commit SHA, file count, chunk count, and skipped-file count (read-only).
+    """
+    return _list_projects()
+
+
+@app.tool()
+def search_code(project: str, query: str, top_k: int = 6) -> str:
+    """
+    Hybrid vector and keyword/symbol search across an indexed project's codebase (read-only).
+    Never accesses paths outside the project root or on the sensitive-file skip list.
+    """
+    return _search_code(project=project, query=query, top_k=top_k)
+
+
+@app.tool()
+def get_file_outline(project: str, file_path: str) -> str:
+    """
+    Return imports, functions, classes, and line bounds for a safe file inside the project (read-only).
+    Blocks path traversal and sensitive/skipped files.
+    """
+    return _get_file_outline(project=project, file_path=file_path)
+
+
+@app.tool()
+def find_symbol(project: str, symbol_name: str, limit: int = 15) -> str:
+    """
+    Find symbol definitions (functions, classes, methods, SQL tables, headings) in an indexed project (read-only).
+    """
+    return _find_symbol(project=project, symbol_name=symbol_name, limit=limit)
+
 
 if __name__ == "__main__":
     logger.info("Starting Business Assistant MCP Server on stdio...")

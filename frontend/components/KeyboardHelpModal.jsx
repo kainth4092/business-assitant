@@ -5,7 +5,7 @@ import { X } from "lucide-react";
 
 const SHORTCUTS = [
   { keys: "⌘K / Ctrl+K", desc: "Open command palette (screens, tickets, docs, ask)" },
-  { keys: "1 – 4", desc: "Switch between Analysis, Support, Quality, and Docs" },
+  { keys: "1 – 5", desc: "Switch between Analysis, Support, Quality, Docs, and Projects" },
   { keys: "N", desc: "Start a new analysis session" },
   { keys: "E", desc: "Toggle evidence margin notes" },
   { keys: "D", desc: "Toggle Day Paper / Night Shift theme" },

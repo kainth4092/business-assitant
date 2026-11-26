@@ -1,0 +1,31 @@
+# Registered codebases for Project Init (Codebase RAG)
+# Supports indexing multiple repositories while keeping secrets strictly isolated.
+
+projects:
+  - name: business-assistant
+    local_path: .
+    default_branch: main
+    include:
+      - "**/*.py"
+      - "**/*.js"
+      - "**/*.jsx"
+      - "**/*.mjs"
+      - "**/*.ts"
+      - "**/*.tsx"
+      - "**/*.sql"
+      - "**/*.md"
+      - "**/*.yaml"
+      - "**/*.yml"
+      - "**/Makefile"
+      - "**/Dockerfile*"
+    exclude:
+      - ".git/**"
+      - "frontend/.next/**"
+      - "frontend/node_modules/**"
+      - "frontend/playwright-report/**"
+      - "frontend/test-results/**"
+      - "frontend/screenshots/**"
+      - "data/**"
+      - ".venv/**"
+      - "venv/**"
+      - "**/__pycache__/**"

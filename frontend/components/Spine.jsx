@@ -6,6 +6,7 @@ import {
   LifeBuoy,
   CheckSquare,
   BookOpen,
+  FolderGit2,
   Plus,
   Search,
   HelpCircle,
@@ -60,6 +61,14 @@ export default function Spine({
       icon: BookOpen,
       count:
         systemHealth?.indexed_chunks > 0 ? systemHealth.indexed_chunks : null,
+      urgent: false,
+    },
+    {
+      id: "projects",
+      code: "05",
+      label: "Projects",
+      icon: FolderGit2,
+      count: null,
       urgent: false,
     },
   ];
@@ -304,7 +313,7 @@ export default function Spine({
       {/* Mobile Bottom Navigation Bar (<768px, e.g. 390px) */}
       <nav
         aria-label="Mobile navigation bar"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-raised border-t border-grid grid grid-cols-4 h-14"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-raised border-t border-grid grid grid-cols-5 h-14"
       >
         {tabs.map((tab) => {
           const Icon = tab.icon;

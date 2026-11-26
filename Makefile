@@ -1,4 +1,4 @@
-.PHONY: setup start-backend start-frontend channels test lint build clean
+.PHONY: setup start-backend start-frontend channels test lint build index-project reindex-project clean
 
 setup:
 	@bash scripts/setup.sh
@@ -11,6 +11,12 @@ start-frontend:
 
 channels:
 	@.venv/bin/python3 -m backend.support.channel_manager
+
+index-project:
+	@.venv/bin/python3 -m project_init index $(or $(PROJECT),business-assistant)
+
+reindex-project:
+	@.venv/bin/python3 -m project_init reindex $(or $(PROJECT),business-assistant)
 
 test:
 	@.venv/bin/pytest tests/ -v

@@ -80,12 +80,15 @@ def ensure_test_database():
     # Ensure schema in test database
     try:
         init_sql_path = os.path.join(root_dir, "infra", "init.sql")
+        code_rag_sql_path = os.path.join(root_dir, "infra", "code_rag_schema.sql")
         if os.path.exists(init_sql_path):
             test_conn = psycopg2.connect(TEST_DB_URL)
             test_cur = test_conn.cursor()
             with open(init_sql_path, "r", encoding="utf-8") as f:
-                sql_content = f.read()
-            test_cur.execute(sql_content)
+                test_cur.execute(f.read())
+            if os.path.exists(code_rag_sql_path):
+                with open(code_rag_sql_path, "r", encoding="utf-8") as f:
+                    test_cur.execute(f.read())
             test_conn.commit()
             test_cur.close()
             test_conn.close()

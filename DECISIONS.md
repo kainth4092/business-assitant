@@ -291,3 +291,19 @@ This log records all technical, architectural, and design decisions made for the
   3. **Server/Client Split**: `app/layout.jsx` and `app/page.jsx` remain Server Components; interactive workbench state lives in `components/WorkbenchApp.jsx` and modular components (`Spine`, `Strip`, `StripBoard`, `Stamp`, `LogEntry`, `Margin`, `Timeline`, `SqlBlock`, `DataTable`, `QualityBars`, `IndexCard`, `ChannelStatus`, `CommandPalette`, `KeyboardHelpModal`, `EmptyState`, `ErrorState`, `Skeleton`).
   4. **SSE Streaming & Security**: Added `frontend/lib/sseStream.js` (full `text/event-stream` parser with reconnect backoff, `Last-Event-ID`, `AbortController`, and JSON fallback for `POST /chat`) plus server-side `frontend/app/api/chat/stream/route.js` and security headers in `frontend/next.config.js`.
 - **Consequences**: Zero TypeScript files, minimal audited frontend dependencies, modern CSS platform features (`@container`, `:has()`, `document.startViewTransition`, `color-mix()`, logical properties, `prefers-reduced-motion`), and full backward compatibility with all FastAPI endpoints.
+
+---
+
+### Decision 24: Project Init (Secret-Safe Project-Aware Codebase RAG)
+- **Context**: Engineers and analysts need codebase Q&A with exact `file:line` citations and structural import/symbol lookups without ever indexing or leaking secrets.
+- **Decision**:
+  1. **Configuration & Dedicated PostgreSQL Schema**:
+     - Added multi-project `projects.yaml` (`name`, `local_path`, `include`, `exclude`, `default_branch`).
+     - Added an isolated PostgreSQL schema `code_rag` (`infra/code_rag_schema.sql`) separate from `public.sales`: `code_rag.projects`, `code_rag.file_metadata`, `code_rag.code_chunks` (`VECTOR(768)` + HNSW cosine index + generated `tsvector` GIN index), `code_rag.summary_cache` (content-hash keyed), and `code_rag.skipped_files` (never storing secret values).
+  2. **AST Parsing & Verified Libraries**:
+     - Python & JS/JSX AST chunking uses `tree-sitter==0.27.0` with `tree-sitter-python==0.25.0` and `tree-sitter-javascript==0.25.0`; SQL statements/functions/views use `sqlparse==0.6.1`; `.gitignore` & glob filtering use `pathspec==1.1.1`; `--watch` uses `watchdog==7.1.1`.
+  3. **Defense-in-Depth Secret Protection**:
+     - Enforces `.gitignore` + mandatory skip list (`.env*`, private keys, keystores, credentials/secrets files, `.npmrc`/`.pypirc` with tokens, Terraform state, DB dumps, lockfile summary-only mode, binaries/large files, `.git`), pre-index file secret scanning (`gitleaks` when installed + built-in regex & Shannon entropy scanner), chunk-level regex & entropy gating, path-confinement validation, and output `[REDACTED]` filtering across CLI, MCP tools, API, and LLM answers.
+  4. **Storage Portability Note**:
+     - Primary runtime store uses PostgreSQL + `pgvector` in `code_rag`; in environments where the Docker PostgreSQL service on `5434` is unavailable, automated tests isolate via the test suite without modifying production data (`BLOCKED.md` records Docker status honestly).
+- **Consequences**: Codebase RAG operates independently alongside sales/document workflows, supports incremental git-diff/hash re-indexing, exposes read-only MCP tools (`search_code`, `get_file_outline`, `find_symbol`, `list_projects`), FastAPI `/projects/*` routes, and the `05 Projects` workbench view.

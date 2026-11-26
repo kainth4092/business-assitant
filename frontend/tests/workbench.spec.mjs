@@ -41,7 +41,7 @@ async function setTheme(page, mode) {
       localStorage.setItem("theme", "light");
     }
   }, mode);
-  await page.waitForTimeout(80);
+  await page.waitForTimeout(250);
 }
 
 function attachEmptyBackendRoutes(page) {
@@ -152,6 +152,55 @@ function attachEmptyBackendRoutes(page) {
             },
           ],
         }),
+      });
+    }
+    if (p === "/projects") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "SUCCESS",
+          database_ready: true,
+          projects: [
+            {
+              name: "business-assistant",
+              local_path: "/repo/business-assistant",
+              default_branch: "main",
+              status: "not_indexed",
+              last_commit_hash: null,
+              last_indexed_at: null,
+              file_count: 0,
+              chunk_count: 0,
+              skipped_count: 0,
+            },
+          ],
+        }),
+      });
+    }
+    if (p === "/projects/business-assistant/index-status") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "not_indexed",
+          project: {
+            name: "business-assistant",
+            local_path: "/repo/business-assistant",
+            default_branch: "main",
+            status: "not_indexed",
+            file_count: 0,
+            chunk_count: 0,
+            skipped_count: 0,
+          },
+          file_tree: [],
+        }),
+      });
+    }
+    if (p === "/projects/business-assistant/skipped") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ status: "SUCCESS", project: "business-assistant", skipped_files: [] }),
       });
     }
     return route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
@@ -626,6 +675,143 @@ function attachPopulatedBackendRoutes(page, fixtures, state = { dqShouldFailOnce
       });
     }
 
+    if (p === "/projects") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "SUCCESS",
+          database_ready: true,
+          projects: [
+            {
+              name: "business-assistant",
+              local_path: "/repo/business-assistant",
+              default_branch: "main",
+              status: "indexed",
+              last_commit_hash: "4d966f0929cab11d",
+              last_indexed_at: "2026-11-26T15:30:00Z",
+              file_count: 42,
+              chunk_count: 218,
+              skipped_count: 4,
+            },
+          ],
+        }),
+      });
+    }
+
+    if (p === "/projects/business-assistant/index-status") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "indexed",
+          project: {
+            name: "business-assistant",
+            local_path: "/repo/business-assistant",
+            default_branch: "main",
+            status: "indexed",
+            last_commit_hash: "4d966f0929cab11d",
+            last_indexed_at: "2026-11-26T15:30:00Z",
+            file_count: 42,
+            chunk_count: 218,
+            skipped_count: 4,
+          },
+          file_tree: [
+            {
+              file_path: "backend/main.py",
+              language: "python",
+              line_count: 980,
+              chunk_count: 19,
+              imports: ["fastapi", "backend.agent.graph"],
+            },
+          ],
+        }),
+      });
+    }
+
+    if (p === "/projects/business-assistant/skipped") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "SUCCESS",
+          project: "business-assistant",
+          skipped_files: [
+            {
+              file_path: ".env",
+              rule: "mandatory_skip_glob",
+              reason: "Sensitive or non-code file pattern (.env)",
+              scanned_at: "2026-11-26T15:30:00Z",
+            },
+            {
+              file_path: "secrets_fixture.key",
+              rule: "mandatory_skip_glob",
+              reason: "Sensitive or non-code file pattern (*.key)",
+              scanned_at: "2026-11-26T15:30:00Z",
+            },
+          ],
+        }),
+      });
+    }
+
+    if (p === "/projects/business-assistant/index" && route.request().method() === "POST") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "SUCCESS",
+          project: "business-assistant",
+          commit_hash: "4d966f0929cab11d",
+          incremental: true,
+          scanned_files: 46,
+          indexed_files: 2,
+          unchanged_files: 40,
+          removed_files: 0,
+          indexed_chunks: 6,
+          dropped_chunks: 0,
+          skipped_count: 4,
+        }),
+      });
+    }
+
+    if (p === "/projects/business-assistant/ask" && route.request().method() === "POST") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "SUCCESS",
+          project: "business-assistant",
+          question: "Where are MCP tools registered?",
+          found: true,
+          answer:
+            "MCP tools are registered in mcp_server/server.py:27-90 via @app.tool().",
+          citations: [
+            {
+              file_path: "mcp_server/server.py",
+              start_line: 27,
+              end_line: 90,
+              symbol_name: "search_code",
+              commit_hash: "4d966f09",
+              ref: "mcp_server/server.py:27-90",
+            },
+          ],
+          chunks: [
+            {
+              file_path: "mcp_server/server.py",
+              start_line: 27,
+              end_line: 90,
+              symbol_name: "search_code",
+              language: "python",
+              summary: "[python] search_code (function) in mcp_server/server.py:27-90",
+              snippet: "@app.tool()\ndef search_code(project: str, query: str, top_k: int = 6) -> str:",
+              score: 0.94,
+            },
+          ],
+          import_matches: [],
+        }),
+      });
+    }
+
     return route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
   });
 }
@@ -904,6 +1090,58 @@ test.describe("Business Assistant Workbench Redesign", () => {
     await expect(slackSwitch).toHaveAttribute("aria-checked", "true");
     await slackSwitch.click();
     await expect(slackSwitch).toHaveAttribute("aria-checked", "false");
+
+    expect(pageErrors).toEqual([]);
+  });
+
+  test("05 Projects screen: index stats, codebase Q&A citations, skipped list, and WCAG AA compliance", async ({
+    page,
+  }) => {
+    const pageErrors = [];
+    page.on("pageerror", (err) => pageErrors.push(err.message));
+
+    const fixtures = createPopulatedFixtures();
+    await attachPopulatedBackendRoutes(page, fixtures, { dqFailRemaining: 0 });
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+
+    await page.getByTestId("sidebar-tab-projects").click();
+    await expect(
+      page.getByRole("heading", { name: "Codebase Index Registry" })
+    ).toBeVisible();
+    await expect(page.getByText("42", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("218", { exact: true }).first()).toBeVisible();
+
+    // Re-Index action
+    await page.getByRole("button", { name: "Re-Index Incremental" }).click();
+    await expect(page.getByText(/Indexed 2 updated files/i)).toBeVisible();
+
+    // Ask question & inspect clickable citation
+    await page
+      .getByLabel(/Ask a question about business-assistant/i)
+      .fill("Where are MCP tools registered?");
+    await page.getByRole("button", { name: "Ask", exact: true }).click();
+    await expect(page.getByText(/MCP tools are registered in/i)).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "mcp_server/server.py:27-90" })
+    ).toBeVisible();
+    await expect(page.getByText(/def search_code/i)).toBeVisible();
+
+    await runAxeScan(page, "1440px-light-projects");
+    await assertNoHorizontalOverflow(page);
+
+    // Inspect Skipped Files tab & Indexed Tree tab
+    await page.getByRole("tab", { name: /Skipped Files \(2\)/i }).click();
+    await expect(page.getByText("secrets_fixture.key")).toBeVisible();
+    await page.getByRole("tab", { name: /Indexed Tree \(1\)/i }).click();
+    await expect(page.getByText("backend/main.py")).toBeVisible();
+
+    // Mobile & dark mode accessibility check
+    await setTheme(page, "dark");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await runAxeScan(page, "390px-dark-projects");
+    await assertNoHorizontalOverflow(page);
 
     expect(pageErrors).toEqual([]);
   });

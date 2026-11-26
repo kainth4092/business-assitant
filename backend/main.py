@@ -16,7 +16,7 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Optional, List, Dict, Any, Literal
 from pydantic import BaseModel, Field
-from fastapi import FastAPI, HTTPException, status, UploadFile, File
+from fastapi import FastAPI, HTTPException, status, UploadFile, File, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import psycopg2
@@ -815,6 +815,211 @@ def run_pipeline_endpoint():
         "cleaned_records": pyspark_res.get("records_profile", {}).get("cleaned_total_rows") if pyspark_res else 0,
         "indexed_chunks": doc_chunks
     }
+
+
+# ------------------------------------------------------------------------------
+# Project Init (Codebase RAG) Endpoints
+# ------------------------------------------------------------------------------
+class ProjectAskRequest(BaseModel):
+    question: str = Field(..., min_length=1, description="Plain-English question about the indexed codebase")
+    top_k: int = Field(default=6, ge=1, le=20)
+
+
+class ProjectIndexRequest(BaseModel):
+    incremental: bool = Field(default=True, description="Incremental re-index when true; full rebuild when false")
+
+
+def get_code_store():
+    """FastAPI dependency yielding the active PostgreSQL `code_rag` store."""
+    from project_init.store import PostgresCodeStore
+    return PostgresCodeStore()
+
+
+@app.get("/projects", status_code=status.HTTP_200_OK)
+def list_projects_endpoint(store=Depends(get_code_store)):
+    """List configured projects and their latest codebase RAG indexing telemetry."""
+    from project_init.config import load_projects_config
+    from project_init.security import redact_secrets
+
+    configs = load_projects_config()
+    indexed_map: Dict[str, Any] = {}
+    db_error: Optional[str] = None
+    try:
+        for row in store.list_projects():
+            indexed_map[row["name"]] = row
+    except Exception as exc:
+        db_error = str(exc)
+
+    projects_payload: List[Dict[str, Any]] = []
+    for cfg in configs:
+        db_row = indexed_map.get(cfg.name, {})
+        projects_payload.append(
+            {
+                "name": cfg.name,
+                "local_path": cfg.local_path,
+                "default_branch": cfg.default_branch,
+                "status": db_row.get("status", "database_unavailable" if db_error else "not_indexed"),
+                "last_commit_hash": db_row.get("last_commit_hash"),
+                "last_indexed_at": str(db_row["last_indexed_at"]) if db_row.get("last_indexed_at") else None,
+                "file_count": int(db_row.get("file_count") or 0),
+                "chunk_count": int(db_row.get("chunk_count") or 0),
+                "skipped_count": int(db_row.get("skipped_count") or 0),
+                "last_error": redact_secrets(str(db_row.get("last_error"))) if db_row.get("last_error") else None,
+            }
+        )
+
+    return {
+        "status": "SUCCESS",
+        "database_ready": db_error is None,
+        "database_error": redact_secrets(db_error) if db_error else None,
+        "projects": projects_payload,
+    }
+
+
+@app.get("/projects/{name}/index-status", status_code=status.HTTP_200_OK)
+def get_project_index_status_endpoint(name: str, store=Depends(get_code_store)):
+    """Return index metrics, commit hash, languages, and file tree summary for a project."""
+    from project_init.config import get_project_config
+    from project_init.security import redact_secrets
+
+    try:
+        cfg = get_project_config(name)
+    except KeyError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Project '{name}' not found.")
+
+    try:
+        info = store.get_project_status(name)
+        file_tree = store.list_file_tree(name, limit=150)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Code RAG store unavailable: {redact_secrets(str(exc))}",
+        )
+
+    if not info:
+        return {
+            "status": "not_indexed",
+            "project": {
+                "name": cfg.name,
+                "local_path": cfg.local_path,
+                "default_branch": cfg.default_branch,
+                "last_commit_hash": None,
+                "last_indexed_at": None,
+                "file_count": 0,
+                "chunk_count": 0,
+                "skipped_count": 0,
+                "status": "not_indexed",
+                "languages": [],
+            },
+            "file_tree": [],
+        }
+
+    info["last_indexed_at"] = str(info["last_indexed_at"]) if info.get("last_indexed_at") else None
+    return {
+        "status": info.get("status", "indexed"),
+        "project": info,
+        "file_tree": file_tree,
+    }
+
+
+@app.get("/projects/{name}/skipped", status_code=status.HTTP_200_OK)
+def get_project_skipped_files_endpoint(name: str, store=Depends(get_code_store)):
+    """Return skipped filenames and reasons for `name` (never secret values)."""
+    from project_init.config import get_project_config
+    from project_init.security import redact_secrets
+
+    try:
+        get_project_config(name)
+    except KeyError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Project '{name}' not found.")
+
+    try:
+        items = store.get_skipped_files(name)
+        sanitized = [
+            {
+                "file_path": row["file_path"],
+                "reason": redact_secrets(str(row["reason"])),
+                "rule": str(row.get("rule", "policy")),
+                "scanned_at": str(row["scanned_at"]) if row.get("scanned_at") else None,
+            }
+            for row in items
+        ]
+        return {"status": "SUCCESS", "project": name, "skipped_files": sanitized}
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Could not read skipped files report: {redact_secrets(str(exc))}",
+        )
+
+
+@app.post("/projects/{name}/index", status_code=status.HTTP_200_OK)
+def trigger_project_index_endpoint(
+    name: str,
+    payload: Optional[ProjectIndexRequest] = None,
+    store=Depends(get_code_store),
+):
+    """Trigger full or incremental indexing of project `name`."""
+    from project_init.config import get_project_config
+    from project_init.indexer import index_project
+    from project_init.security import redact_secrets
+
+    try:
+        get_project_config(name)
+    except KeyError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Project '{name}' not found.")
+
+    incremental = payload.incremental if payload is not None else True
+    try:
+        stats = index_project(name, incremental=incremental, store=store)
+        return {
+            "status": "SUCCESS",
+            "project": stats.project,
+            "commit_hash": stats.commit_hash,
+            "incremental": stats.incremental,
+            "scanned_files": stats.scanned_files,
+            "indexed_files": stats.indexed_files,
+            "unchanged_files": stats.unchanged_files,
+            "removed_files": stats.removed_files,
+            "indexed_chunks": stats.indexed_chunks,
+            "dropped_chunks": stats.dropped_chunks,
+            "skipped_count": len(stats.skipped_files),
+        }
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Project indexing failed: {redact_secrets(str(exc))}",
+        )
+
+
+@app.post("/projects/{name}/ask", status_code=status.HTTP_200_OK)
+def ask_project_codebase_endpoint(
+    name: str,
+    payload: ProjectAskRequest,
+    store=Depends(get_code_store),
+):
+    """Answer a question strictly from indexed chunks of `name` with file:line citations."""
+    from project_init.config import get_project_config
+    from project_init.retriever import ask_codebase
+    from project_init.security import redact_secrets
+
+    try:
+        get_project_config(name)
+    except KeyError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Project '{name}' not found.")
+
+    try:
+        result = ask_codebase(
+            project=name,
+            question=payload.question,
+            top_k=payload.top_k,
+            store=store,
+        )
+        return {"status": "SUCCESS", **result}
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Codebase query failed: {redact_secrets(str(exc))}",
+        )
 
 if __name__ == "__main__":
     import uvicorn

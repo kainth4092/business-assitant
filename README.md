@@ -148,6 +148,26 @@ For a full guided walkthrough, see [DEMO_SCRIPT.md](DEMO_SCRIPT.md).
 
 ---
 
+### Project Init (Secret-Safe Codebase RAG)
+
+Index registered repositories in `projects.yaml` into the isolated PostgreSQL `code_rag` schema (`pgvector` HNSW + full-text metadata) to ask architecture and implementation questions with exact `file:line` citations while excluding secrets:
+
+```bash
+# Index or incrementally re-index a registered project
+./.venv/bin/project-init index business-assistant
+./.venv/bin/project-init reindex business-assistant
+./.venv/bin/project-init index business-assistant --watch
+
+# Ask a question from the CLI
+./.venv/bin/project-init ask business-assistant "Where are MCP tools registered?"
+```
+
+- **MCP Tools (`mcp_server/server.py`)**: `list_projects`, `search_code`, `get_file_outline`, `find_symbol` (all read-only with strict project-root path confinement and `[REDACTED]` scrubbing).
+- **API Endpoints**: `GET /projects`, `GET /projects/{name}/index-status`, `GET /projects/{name}/skipped`, `POST /projects/{name}/index`, `POST /projects/{name}/ask`.
+- **Workbench Screen**: Open the **`05 Projects`** tab in the web app (`Ctrl+K` or press `5`).
+
+---
+
 ## Running Automated Tests
 
 Run the comprehensive pytest suite (47 unit and integration tests):

@@ -6,7 +6,19 @@
 
 ---
 
-## Blocked / Pending User Configuration for Live External Support Channels
+## Blocked / Pending User Action Items
+
+### 1. Docker Daemon / PostgreSQL (`localhost:5434`) Inactive in Current Environment
+- **What is blocked**: The Docker daemon (`docker.service` / `/var/run/docker.sock`) is currently stopped on this Linux host and starting it requires `sudo`. As a result, live `postgresql://postgres:postgres_password@localhost:5434/business_assistant` (`pgvector`) is offline here.
+- **What still works & is verified**: All schema DDL (`infra/code_rag_schema.sql`, `infra/init.sql`), `PostgresCodeStore` parameterized queries, CLI (`project-init`), MCP tools, FastAPI `/projects*` endpoints, secret exclusion/redaction, AST chunking, frontend build, Playwright E2E, and automated pytest suites are implemented and verified offline.
+- **Exact command for user to unblock live database & run Project Init against pgvector**:
+  ```bash
+  sudo systemctl start docker
+  docker compose -f infra/docker-compose.yml up -d postgres
+  ./.venv/bin/project-init index business-assistant
+  ```
+
+### 2. Live External Support Channels (Unconfigured `.env` Credentials)
 
 Real channel listeners are implemented and ready to start automatically with the backend (or via `make channels`), **but cannot connect to live external services yet because credentials are not configured in `.env`**:
 

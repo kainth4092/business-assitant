@@ -132,7 +132,21 @@ The Support Desk accepts incident messages not only from the **`+ Simulate Clien
 
 ---
 
-## 6. Running Tests & Guardrails
+## 6. Project Init (Codebase RAG) Operations
+
+1. Register repositories in `projects.yaml` (`name`, `local_path`, `default_branch`, `include`, `exclude`).
+2. Index or watch from the CLI:
+   ```bash
+   ./.venv/bin/project-init list
+   ./.venv/bin/project-init index business-assistant
+   ./.venv/bin/project-init reindex business-assistant
+   ./.venv/bin/project-init index business-assistant --watch
+   ```
+3. Or open the **`05 Projects`** tab (shortcut `5`) in [http://localhost:3000](http://localhost:3000) to inspect file/chunk counts, commit hash, the **Skipped Files** security audit report, click **Re-Index Incremental**, and ask plain-English codebase questions with clickable `file:line` citations.
+
+---
+
+## 7. Running Tests & Guardrails
 
 The project includes strict test isolation preventing any test from modifying production data:
 

@@ -7,6 +7,7 @@ import {
   LifeBuoy,
   CheckSquare,
   BookOpen,
+  FolderGit2,
   Plus,
   Upload,
   Moon,
@@ -70,6 +71,14 @@ function CommandPaletteDialog({
       shortcut: "4",
       icon: BookOpen,
       action: () => onSelectTab("documents"),
+    },
+    {
+      id: "nav-projects",
+      group: "Screens",
+      label: "Go to Codebase Projects Registry",
+      shortcut: "5",
+      icon: FolderGit2,
+      action: () => onSelectTab("projects"),
     },
     {
       id: "act-new",

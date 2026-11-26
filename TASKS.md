@@ -248,3 +248,13 @@
   - [x] Build reusable components (`Spine`, `Strip`, `StripBoard`, `Stamp`, `LogEntry`, `Margin`, `Timeline`, `SqlBlock`, `DataTable`, `QualityBars`, `IndexCard`, `ChannelStatus`, `CommandPalette`, `KeyboardHelpModal`, `EmptyState`, `ErrorState`, `Skeleton`, `Composer`, `SegmentedControl`, `AddDataArea`, `AddDataModal`, `DataQualityView`, `DocumentsView`, `SupportDeskView`, `TicketDetail`, `WorkbenchApp`)
   - [x] Build Playwright E2E + `@axe-core/playwright` accessibility + responsive screenshot suite (`390px` & `1440px`, light & dark, empty & populated data)
   - [x] Run `npm run lint`, `npm run build`, `npm audit`, Playwright tests, and `pytest`, review screenshots, and fix all issues
+
+- [x] **Stage 19: Project Init (Project-Aware Codebase RAG)**
+  - [x] Design architecture & `code_rag` schema (`PHASE1_DESIGN.md`) and create `projects.yaml`
+  - [x] Implement secret & sensitive-file filter (`.gitignore`, skip list, pre-index scanner, chunk regex/entropy check, output `[REDACTED]`)
+  - [x] Implement AST-aware chunking (Python, JS/JSX via `tree-sitter`, SQL via `sqlparse`, Markdown headings, sliding window fallback, cached summaries)
+  - [x] Implement `code_rag` pgvector HNSW schema, `file_metadata` (file tree + imports), and incremental git-diff/hash indexing + CLI (`project-init`) + `--watch`
+  - [x] Implement hybrid retrieval (vector + keyword/symbol/path + rerank) and grounded `ask_codebase`
+  - [x] Add read-only MCP tools (`search_code`, `get_file_outline`, `find_symbol`, `list_projects`) with path confinement & skip enforcement
+  - [x] Add FastAPI `/projects*` endpoints and Frontend `05 Projects` workbench view matching stationery × flight-strip aesthetic
+  - [x] Write & run pytest suite + Playwright UI/axe tests, update docs, and verify end-to-end

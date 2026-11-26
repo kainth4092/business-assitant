@@ -19,6 +19,7 @@ import Timeline from "./Timeline";
 import DataQualityView from "./DataQualityView";
 import DocumentsView from "./DocumentsView";
 import SupportDeskView from "./SupportDeskView";
+import ProjectsView from "./ProjectsView";
 import AddDataModal from "./AddDataModal";
 import CommandPalette from "./CommandPalette";
 import KeyboardHelpModal from "./KeyboardHelpModal";
@@ -363,6 +364,8 @@ export default function WorkbenchApp() {
         switchTab("data-quality");
       } else if (e.key === "4") {
         switchTab("documents");
+      } else if (e.key === "5") {
+        switchTab("projects");
       } else if (e.key.toLowerCase() === "n") {
         e.preventDefault();
         handleNewSession();
@@ -852,6 +855,8 @@ export default function WorkbenchApp() {
               onClearExternalDoc={() => setExternalDocFile(null)}
             />
           )}
+
+          {activeTab === "projects" && <ProjectsView />}
         </main>
       </div>
 
