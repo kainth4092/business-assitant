@@ -1,6 +1,6 @@
 # Amazon Web Services (AWS) Deployment Blueprint
 
-This guide provides complete, production-ready specifications for deploying the **Business Assistant** system to AWS.
+This guide provides complete, production-ready specifications for deploying the **Fixdesk** system to AWS.
 
 ---
 
@@ -29,26 +29,26 @@ export AWS_REGION="us-east-1"
 export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 
 # Create S3 buckets for data lakes and document policies
-aws s3 mb s3://business-assistant-datalake-$ACCOUNT_ID --region $AWS_REGION
-aws s3 mb s3://business-assistant-docs-$ACCOUNT_ID --region $AWS_REGION
+aws s3 mb s3://fixdesk-datalake-$ACCOUNT_ID --region $AWS_REGION
+aws s3 mb s3://fixdesk-docs-$ACCOUNT_ID --region $AWS_REGION
 
 # Create ECR Docker container repositories
-aws ecr create-repository --repository-name business-assistant-backend --region $AWS_REGION
-aws ecr create-repository --repository-name business-assistant-frontend --region $AWS_REGION
+aws ecr create-repository --repository-name fixdesk-backend --region $AWS_REGION
+aws ecr create-repository --repository-name fixdesk-frontend --region $AWS_REGION
 ```
 
 ### Step 2: Database Provisioning (Amazon RDS PostgreSQL with pgvector)
 ```bash
 # Create RDS PostgreSQL DB instance with pgvector support
 aws rds create-db-instance \
-    --db-instance-identifier business-assistant-postgres \
+    --db-instance-identifier fixdesk-postgres \
     --db-instance-class db.t4g.medium \
     --engine postgres \
     --engine-version 16.2 \
     --allocated-storage 20 \
     --master-username postgres \
     --master-user-password "STRONG_POSTGRES_PASSWORD" \
-    --db-name business_assistant \
+    --db-name fixdesk \
     --vpc-security-group-ids sg-xxxxxx \
     --backup-retention-period 7 \
     --publicly-accessible false
@@ -59,16 +59,16 @@ Execute `infra/init.sql` using AWS Cloud9 or an EC2 bastion host to enable `CREA
 ### Step 3: PySpark ETL on AWS Glue Serverless
 ```bash
 # Upload PySpark script and raw CSV to Amazon S3
-aws s3 cp pipelines/clean_sales.py s3://business-assistant-datalake-$ACCOUNT_ID/scripts/clean_sales.py
-aws s3 cp data/BigMart_Sales.csv s3://business-assistant-datalake-$ACCOUNT_ID/raw/BigMart_Sales.csv
-aws s3 cp pipelines/jars/postgresql-42.7.3.jar s3://business-assistant-datalake-$ACCOUNT_ID/jars/postgresql-42.7.3.jar
+aws s3 cp pipelines/clean_sales.py s3://fixdesk-datalake-$ACCOUNT_ID/scripts/clean_sales.py
+aws s3 cp data/BigMart_Sales.csv s3://fixdesk-datalake-$ACCOUNT_ID/raw/BigMart_Sales.csv
+aws s3 cp pipelines/jars/postgresql-42.7.3.jar s3://fixdesk-datalake-$ACCOUNT_ID/jars/postgresql-42.7.3.jar
 
 # Create AWS Glue 4.0 Spark job
 aws glue create-job \
-    --name "business-assistant-sales-cleaning" \
+    --name "fixdesk-sales-cleaning" \
     --role "AWSGlueServiceRole-Default" \
-    --command '{"Name":"glueetl","ScriptLocation":"s3://business-assistant-datalake-'$ACCOUNT_ID'/scripts/clean_sales.py","PythonVersion":"3"}' \
-    --default-arguments '{"--extra-jars":"s3://business-assistant-datalake-'$ACCOUNT_ID'/jars/postgresql-42.7.3.jar","--job-language":"python"}' \
+    --command '{"Name":"glueetl","ScriptLocation":"s3://fixdesk-datalake-'$ACCOUNT_ID'/scripts/clean_sales.py","PythonVersion":"3"}' \
+    --default-arguments '{"--extra-jars":"s3://fixdesk-datalake-'$ACCOUNT_ID'/jars/postgresql-42.7.3.jar","--job-language":"python"}' \
     --glue-version "4.0" \
     --number-of-workers 2 \
     --worker-type "G.1X"
@@ -80,15 +80,15 @@ aws glue create-job \
 aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
 
 # Build and push Backend image
-docker build -t $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/business-assistant-backend:latest -f infra/Dockerfile.backend .
-docker push $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/business-assistant-backend:latest
+docker build -t $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/fixdesk-backend:latest -f infra/Dockerfile.backend .
+docker push $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/fixdesk-backend:latest
 
 # Build and push Frontend image
-docker build -t $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/business-assistant-frontend:latest -f infra/Dockerfile.frontend frontend/
-docker push $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/business-assistant-frontend:latest
+docker build -t $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/fixdesk-frontend:latest -f infra/Dockerfile.frontend frontend/
+docker push $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/fixdesk-frontend:latest
 
 # Create ECS Fargate Cluster
-aws ecs create-cluster --cluster-name business-assistant-cluster --region $AWS_REGION
+aws ecs create-cluster --cluster-name fixdesk-cluster --region $AWS_REGION
 ```
 
 Deploy the ECS Task Definitions and Services behind an Application Load Balancer (ALB) with HTTPS termination via AWS Certificate Manager (ACM).

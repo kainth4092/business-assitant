@@ -44,7 +44,7 @@ def test_chunk_sections_windowing():
 def test_live_search_documents():
     import psycopg2
     from backend.rag.embeddings import get_fallback_embedding
-    test_db = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres_password@localhost:5434/business_assistant_test")
+    test_db = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres_password@localhost:5434/fixdesk_test")
     conn = psycopg2.connect(test_db)
     cur = conn.cursor()
     dummy_vec = get_fallback_embedding("return policy for dairy products")

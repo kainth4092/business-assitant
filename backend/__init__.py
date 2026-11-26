@@ -1,3 +1,3 @@
 """
-Business Assistant Backend Package
+Fixdesk Backend Package
 """

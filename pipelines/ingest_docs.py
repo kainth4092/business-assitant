@@ -1,5 +1,5 @@
 """
-RAG Ingestion Pipeline for Business Assistant
+RAG Ingestion Pipeline for Fixdesk
 ---------------------------------------------
 Scans company policy markdown documents in /docs, chunks them semantically,
 computes 768-dimensional vector embeddings, and stores them in PostgreSQL pgvector.
@@ -207,7 +207,7 @@ def ingest_all_docs(docs_dir: str = "docs") -> int:
     # Connect to PostgreSQL with read-write user
     db_url = os.environ.get(
         "DATABASE_URL",
-        "postgresql://postgres:postgres_password@localhost:5434/business_assistant"
+        "postgresql://postgres:postgres_password@localhost:5434/fixdesk"
     )
     
     conn = psycopg2.connect(db_url)

@@ -640,7 +640,7 @@ export default function WorkbenchApp() {
 
             <div className="flex items-center gap-1.5 font-mono text-xs min-w-0 truncate">
               <span className="text-muted hidden sm:inline uppercase tracking-wider text-[10.5px]">
-                Business Assistant
+                Fixdesk
               </span>
               <span className="text-muted hidden sm:inline">/</span>
               <span className="font-bold text-ink truncate">
@@ -648,6 +648,7 @@ export default function WorkbenchApp() {
                 {activeTab === "support-desk" && "Support Desk"}
                 {activeTab === "data-quality" && "Data Quality"}
                 {activeTab === "documents" && "Documents Catalog"}
+                {activeTab === "projects" && "Projects Registry"}
               </span>
               {activeTab === "chat" && (
                 <span className="hidden md:inline px-1.5 py-0.2 rounded-xs border border-grid bg-sunken text-[10px] text-muted tabular-mono">

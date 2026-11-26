@@ -1,6 +1,6 @@
 # Architecture & Engineering Decisions Log (DECISIONS.md)
 
-This log records all technical, architectural, and design decisions made for the "Business Assistant" project.
+This log records all technical, architectural, and design decisions made for the "Fixdesk" project.
 
 ---
 
@@ -74,9 +74,9 @@ This log records all technical, architectural, and design decisions made for the
 
 ---
 
-### Decision 9: Project Directory Organization (`/home/kanish/Documents/business-assistant`)
+### Decision 9: Project Directory Organization (`.`)
 - **Context**: The active workspace was initially `/home/kanish/Documents`, where other existing projects reside (`agentic-rag`, `Resume-Rag`, `trendhub-ai`, etc.).
-- **Decision**: Move all project files, pipelines, backend, frontend, infra, tests, virtual environment, and documentation into a dedicated project directory: `/home/kanish/Documents/business-assistant/`.
+- **Decision**: Move all project files, pipelines, backend, frontend, infra, tests, virtual environment, and documentation into a dedicated project directory: `./`.
 - **Consequences**: Keeps the user's `Documents` root clean, prevents any conflict with existing folders (such as `docs/Deneo-refi`), and ensures the project is completely self-contained.
 
 ---
@@ -167,7 +167,7 @@ This log records all technical, architectural, and design decisions made for the
   3. **Dynamic PostgreSQL Table Creation**: Generate DDL for table `sales` based on discovered sanitized columns and types; load cleaned data and grant `sales_readonly` SELECT privileges.
   4. **Dynamic Schema Reflection**: Expose table schema via `GET /status` and agent tools so the LangGraph agent receives the exact columns, sample values, and column types in its prompt.
   5. **Dynamic Starter Questions & Data Quality Report**: Derive starter analytical queries dynamically from discovered column names (e.g. `SUM(<numeric>) GROUP BY <categorical>`).
-- **Consequences**: Business Assistant can ingest and analyze any tabular dataset out of the box with zero code changes.
+- **Consequences**: Fixdesk can ingest and analyze any tabular dataset out of the box with zero code changes.
 
 ---
 
@@ -216,13 +216,13 @@ This log records all technical, architectural, and design decisions made for the
 - **Context**: The project required a complete reset to a data-agnostic state so any user CSV and documents can be uploaded and processed without hardcoded references to BigMart or sample policies. Additionally, prior test runs polluted the application database with test tickets and audit records.
 - **Decision**:
   1. **Test Database Isolation**:
-     - Created `business_assistant_test` database for all unit, integration, and guardrail tests.
-     - Implemented a strict safety guard in `tests/conftest.py` that raises a `RuntimeError` if any test attempts to connect to or read from `business_assistant`.
+     - Created `fixdesk_test` database for all unit, integration, and guardrail tests.
+     - Implemented a strict safety guard in `tests/conftest.py` that raises a `RuntimeError` if any test attempts to connect to or read from `fixdesk`.
   2. **Complete Data & Seed Purge**:
      - Purged all Docker volumes, Parquet files, vector chunks, chat messages, tickets, and audit logs.
      - Emptied `data/` and `docs/` directories, retaining only guidance `README.md` files.
      - Removed `pipelines/generate_data.py` and all sample policies.
-     - Verified exactly 0 rows across all tables in `business_assistant`.
+     - Verified exactly 0 rows across all tables in `fixdesk`.
   3. **Data-Agnostic PySpark & Ingestion Pipelines**:
      - PySpark pipeline auto-discovers schema, column types (numeric, categorical, date/time, identifier), handles nulls, and dynamically creates the table in PostgreSQL.
      - Document ingestion supports `.md`, `.txt`, and `.pdf` extracting titles directly from first headings or document text, with zero filler descriptions.
@@ -307,3 +307,19 @@ This log records all technical, architectural, and design decisions made for the
   4. **Storage Portability Note**:
      - Primary runtime store uses PostgreSQL + `pgvector` in `code_rag`; in environments where the Docker PostgreSQL service on `5434` is unavailable, automated tests isolate via the test suite without modifying production data (`BLOCKED.md` records Docker status honestly).
 - **Consequences**: Codebase RAG operates independently alongside sales/document workflows, supports incremental git-diff/hash re-indexing, exposes read-only MCP tools (`search_code`, `get_file_outline`, `find_symbol`, `list_projects`), FastAPI `/projects/*` routes, and the `05 Projects` workbench view.
+
+---
+
+### Decision 25: Canonical Brand Rename to Fixdesk
+- **Context**: Standardizing the project identity across UI, API, MCP server, Docker infrastructure, configuration, prompts, tests, and documentation safely.
+- **Canonical Name Forms**:
+  - **Display Name**: `Fixdesk`
+  - **Slug (kebab-case)**: `fixdesk` (packages/containers/MCP IDs: `fixdesk-frontend`, `fixdesk-mcp`, project slug `fixdesk`)
+  - **snake_case**: `fixdesk` (default DB `fixdesk`, test DB `fixdesk_test`, volume `fixdesk_pgdata`, network `fixdesk_network`, containers `fixdesk_postgres`, `fixdesk_backend`, `fixdesk_frontend`)
+  - **PascalCase**: `Fixdesk`
+  - **UPPER_SNAKE**: `FIXDESK`
+  - **Hanko Seal Monogram**: `FD` (replaces `BA` inside the CSS rotated border mark in `Spine.jsx` and `icon.svg`)
+- **Migration & High-Risk Strategy**:
+  - Default database, Docker container/volume/network names, `.env.example`, and test DB defaults (`fixdesk_test`) adopt `fixdesk` for fresh installs.
+  - Existing local installations keep working via `.env` (`DATABASE_URL` / `READONLY_DATABASE_URL` / `POSTGRES_DB`) without silent destructive data renames, documented step-by-step in [MIGRATION.md](MIGRATION.md).
+  - Enforced by automated rename guardrail tests in `tests/test_rename_guardrail.py`.

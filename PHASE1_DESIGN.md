@@ -12,7 +12,7 @@ Target repositories are declared in `projects.yaml` at the workspace root. Multi
 
 ```yaml
 projects:
-  - name: business-assistant
+  - name: fixdesk
     local_path: .
     default_branch: main
     include:

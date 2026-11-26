@@ -1,5 +1,5 @@
 """
-MCP Tools Implementation for Business Assistant
+MCP Tools Implementation for Fixdesk
 ------------------------------------------------
 Provides secure, audited tools exposed via the Model Context Protocol (MCP):
 1. query_sales: Read-only SQL query engine against PostgreSQL with strict sanitization.
@@ -105,7 +105,7 @@ def query_sales(sql_query: str) -> Dict[str, Any]:
     # Connect using the read-only role
     readonly_url = os.environ.get(
         "READONLY_DATABASE_URL",
-        "postgresql://sales_readonly:readonly_password@localhost:5434/business_assistant"
+        "postgresql://sales_readonly:readonly_password@localhost:5434/fixdesk"
     )
     
     conn = None
@@ -192,7 +192,7 @@ def get_data_quality_report() -> Dict[str, Any]:
     # 1. Attempt retrieval from PostgreSQL quality_reports table
     readonly_url = os.environ.get(
         "READONLY_DATABASE_URL",
-        "postgresql://sales_readonly:readonly_password@localhost:5434/business_assistant"
+        "postgresql://sales_readonly:readonly_password@localhost:5434/fixdesk"
     )
     conn = None
     try:
@@ -261,7 +261,7 @@ def get_schema_metadata() -> Dict[str, Any]:
     # Direct PostgreSQL fallback
     readonly_url = os.environ.get(
         "READONLY_DATABASE_URL",
-        "postgresql://sales_readonly:readonly_password@localhost:5434/business_assistant"
+        "postgresql://sales_readonly:readonly_password@localhost:5434/fixdesk"
     )
     conn = None
     try:

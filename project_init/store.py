@@ -30,11 +30,11 @@ class PostgresCodeStore:
     def __init__(self, database_url: Optional[str] = None, readonly_url: Optional[str] = None):
         self.database_url = database_url or os.environ.get(
             "DATABASE_URL",
-            "postgresql://postgres:postgres_password@localhost:5434/business_assistant",
+            "postgresql://postgres:postgres_password@localhost:5434/fixdesk",
         )
         self.readonly_url = readonly_url or os.environ.get(
             "READONLY_DATABASE_URL",
-            "postgresql://sales_readonly:readonly_password@localhost:5434/business_assistant",
+            "postgresql://sales_readonly:readonly_password@localhost:5434/fixdesk",
         )
 
     def _connect(self, readonly: bool = False):

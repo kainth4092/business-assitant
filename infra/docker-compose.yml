@@ -1,15 +1,13 @@
-version: '3.8'
-
 services:
   # ============================================================================
   # PostgreSQL 16 with pgvector extension enabled
   # ============================================================================
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: business_assistant_postgres
+    container_name: fixdesk_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-business_assistant}
+      POSTGRES_DB: ${POSTGRES_DB:-fixdesk}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_password}
     ports:
@@ -19,12 +17,12 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-business_assistant}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-fixdesk}"]
       interval: 5s
       timeout: 5s
       retries: 5
     networks:
-      - business_network
+      - fixdesk_network
 
   # ============================================================================
   # FastAPI Backend Service (Containerized deployment)
@@ -33,14 +31,14 @@ services:
     build:
       context: ..
       dockerfile: infra/Dockerfile.backend
-    container_name: business_assistant_backend
+    container_name: fixdesk_backend
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres_password}@postgres:5432/${POSTGRES_DB:-business_assistant}
-      - READONLY_DATABASE_URL=postgresql://sales_readonly:readonly_password@postgres:5432/${POSTGRES_DB:-business_assistant}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres_password}@postgres:5432/${POSTGRES_DB:-fixdesk}
+      - READONLY_DATABASE_URL=postgresql://sales_readonly:readonly_password@postgres:5432/${POSTGRES_DB:-fixdesk}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
       - LLM_MODEL=${LLM_MODEL:-gemini-3.5-flash-lite}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-gemini-embedding-2}
@@ -49,7 +47,7 @@ services:
     ports:
       - "8000:8000"
     networks:
-      - business_network
+      - fixdesk_network
 
   # ============================================================================
   # Next.js Frontend Service (Containerized deployment)
@@ -58,7 +56,7 @@ services:
     build:
       context: ../frontend
       dockerfile: ../infra/Dockerfile.frontend
-    container_name: business_assistant_frontend
+    container_name: fixdesk_frontend
     restart: unless-stopped
     depends_on:
       - backend
@@ -67,13 +65,13 @@ services:
     ports:
       - "3000:3000"
     networks:
-      - business_network
+      - fixdesk_network
 
 volumes:
   pgdata:
-    name: business_assistant_pgdata
+    name: fixdesk_pgdata
 
 networks:
-  business_network:
-    name: business_assistant_network
+  fixdesk_network:
+    name: fixdesk_network
     driver: bridge

@@ -13,10 +13,10 @@ channels:
 	@.venv/bin/python3 -m backend.support.channel_manager
 
 index-project:
-	@.venv/bin/python3 -m project_init index $(or $(PROJECT),business-assistant)
+	@.venv/bin/python3 -m project_init index $(or $(PROJECT),fixdesk)
 
 reindex-project:
-	@.venv/bin/python3 -m project_init reindex $(or $(PROJECT),business-assistant)
+	@.venv/bin/python3 -m project_init reindex $(or $(PROJECT),fixdesk)
 
 test:
 	@.venv/bin/pytest tests/ -v

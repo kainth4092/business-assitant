@@ -1,5 +1,5 @@
 """
-LangChain Tool Bindings for Business Assistant
+LangChain Tool Bindings for Fixdesk
 ----------------------------------------------
 Binds the MCP server tools into standard LangChain BaseTool objects
 with clear schemas for Gemini LLM function calling.

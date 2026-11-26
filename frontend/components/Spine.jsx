@@ -96,7 +96,7 @@ export default function Spine({
             className="flex items-center gap-2 text-left cursor-pointer group"
           >
             <span className="w-7 h-7 rounded-xs border-[1.5px] border-seal bg-seal-tint flex items-center justify-center font-mono text-[10px] font-bold text-seal-ink -rotate-2 shrink-0">
-              BA
+              FD
             </span>
             <div className="min-w-0">
               <div className="font-serif text-sm font-bold text-ink leading-none">

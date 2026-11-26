@@ -1,11 +1,11 @@
 # 5-Minute Live Manager Demo Script (DEMO_SCRIPT.md)
 
-Follow this step-by-step presentation script to demonstrate the **Business Assistant** to your manager and seniors. It is designed to run in exactly 5 minutes with one line to speak per action.
+Follow this step-by-step presentation script to demonstrate the **Fixdesk** to your manager and seniors. It is designed to run in exactly 5 minutes with one line to speak per action.
 
 ---
 
 ## Pre-Demo Checklist (Do 2 Minutes Before Your Meeting)
-1. Terminal 1: Run `docker ps` &rarr; verify `business_assistant_postgres` is running on port 5434.
+1. Terminal 1: Run `docker ps` &rarr; verify `fixdesk_postgres` is running on port 5434.
 2. Terminal 2: Run `.venv/bin/python -m uvicorn backend.main:app --port 8000`.
 3. Terminal 3: Run `cd frontend && npm run dev`.
 4. Browser: Open **`http://localhost:3000`** in Google Chrome or Firefox (Maximize the window).
@@ -16,7 +16,7 @@ Follow this step-by-step presentation script to demonstrate the **Business Assis
 
 ### Minute 1: The Workbench & Live Telemetry (0:00 – 1:00)
 - **What to open**: Browser at `http://localhost:3000` on the **Analysis** tab.
-- **What to say**: *"Today I am demonstrating the Business Assistant, an autonomous analytics engine that unifies structured SQL numbers and unstructured policy documents into a verified, single source of truth."*
+- **What to say**: *"Today I am demonstrating the Fixdesk, an autonomous analytics engine that unifies structured SQL numbers and unstructured policy documents into a verified, single source of truth."*
 - **What to show**:
   1. Point to the top header: Point out the green **`AGENT READY`** indicator and live database records badge.
   2. Point to the central cards: Show the dynamic telemetry deck (**Cleaned Sales Rows**, **Vector Policy Chunks**, **Active MCP Tools**).

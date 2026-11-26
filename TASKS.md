@@ -1,4 +1,4 @@
-# Project Tasks Tracker: Business Assistant
+# Project Tasks Tracker: Fixdesk
 
 - [x] **Stage 0: Planning, Task Breakdown & Environment Verification**
   - [x] Check local dependencies (Java, Docker, Python, Node, PostgreSQL)
@@ -165,19 +165,19 @@
 - [x] **Stage 15: Clean Data-Agnostic Reset & Test Isolation**
   - [x] **Part 0: Safety & Backup**
     - [x] Create git branch `backup-before-reset` and commit clean state
-    - [x] Restrict all operations strictly inside `/home/kanish/Documents/business-assistant`
+    - [x] Restrict all operations strictly inside `.`
   - [x] **Part 1: Pre-Reset Static & Seed Audit**
     - [x] Perform comprehensive codebase audit of all static/seeded artifacts
     - [x] Generate `RESET_AUDIT.md` inventory with file and line references
   - [x] **Part 2: Test Database Isolation**
-    - [x] Create dedicated test database `business_assistant_test`
-    - [x] Update `tests/conftest.py` with strict safety guard preventing test pollution of `business_assistant`
+    - [x] Create dedicated test database `fixdesk_test`
+    - [x] Update `tests/conftest.py` with strict safety guard preventing test pollution of `fixdesk`
     - [x] Fix tool DB connections to dynamically read `DATABASE_URL` per request
   - [x] **Part 3: Complete State & Sample Wipe**
     - [x] Purge Docker volumes, containers, Parquet outputs, vector data, tickets, and logs
     - [x] Delete `data/BigMart_Sales.csv`, `pipelines/generate_data.py`, and sample documents in `docs/`
     - [x] Leave clean `data/README.md` and `docs/README.md`
-    - [x] Verify exactly 0 rows across all tables in application database `business_assistant`
+    - [x] Verify exactly 0 rows across all tables in application database `fixdesk`
   - [x] **Part 4: Data-Agnostic Pipelines & User Interface**
     - [x] PySpark schema auto-discovery and generic ETL in `pipelines/clean_sales.py`
     - [x] Multi-format document ingestion (`.md`, `.txt`, `.pdf`) with dynamic title extraction in `pipelines/ingest_docs.py`
@@ -194,7 +194,7 @@
     - [x] Test dynamic schema detection with 3 distinct synthetic CSVs generated strictly inside test
     - [x] Test document ingestion with `.md`, `.txt`, `.pdf`
     - [x] Test real MCP tool execution and security enforcement
-    - [x] Verify zero rows in `business_assistant` database after reset
+    - [x] Verify zero rows in `fixdesk` database after reset
     - [x] Run full pytest suite (53/53 tests passed)
     - [x] Run frontend linter and production build (`npm run lint` and `npm run build` -> 0 errors)
   - [ ] **Part 6: Verification, Documentation & Operator Handoff**
@@ -258,3 +258,12 @@
   - [x] Add read-only MCP tools (`search_code`, `get_file_outline`, `find_symbol`, `list_projects`) with path confinement & skip enforcement
   - [x] Add FastAPI `/projects*` endpoints and Frontend `05 Projects` workbench view matching stationery × flight-strip aesthetic
   - [x] Write & run pytest suite + Playwright UI/axe tests, update docs, and verify end-to-end
+
+- [x] **Stage 20: Brand Rename (`Fixdesk`)**
+  - [x] Create safety git branch and commit (`backup-before-rename`)
+  - [x] Generate complete line-by-line pre-rename inventory (`RENAME_AUDIT.md`)
+  - [x] Record canonical Fixdesk naming forms in `DECISIONS.md`
+  - [x] Apply LOW & MEDIUM renames across frontend, backend, LLM prompts, MCP, pipelines, project_init, scripts, and docs
+  - [x] Update HIGH-risk DB/Docker defaults cleanly for fresh installs + write `MIGRATION.md` for existing setups
+  - [x] Add `tests/test_rename_guardrail.py` failing on any leftover old-name variant
+  - [x] Run backend pytest, frontend lint/build/unit/Playwright tests, generate `RENAME_REPORT.md`, and verify end-to-end

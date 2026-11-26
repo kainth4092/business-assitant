@@ -312,7 +312,7 @@ def run_sales_pipeline(
     # 9. Dynamic PostgreSQL Table Creation & Loading
     pg_host = os.environ.get("POSTGRES_HOST", "localhost")
     pg_port = os.environ.get("POSTGRES_PORT", "5434")
-    pg_db = os.environ.get("POSTGRES_DB", "business_assistant")
+    pg_db = os.environ.get("POSTGRES_DB", "fixdesk")
     pg_user = os.environ.get("POSTGRES_USER", "postgres")
     pg_password = os.environ.get("POSTGRES_PASSWORD", "postgres_password")
     

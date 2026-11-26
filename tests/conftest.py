@@ -1,6 +1,6 @@
 """
-Pytest configuration for Business Assistant
-Configures a dedicated test database (business_assistant_test) and enforces strict safety guards
+Pytest configuration for Fixdesk
+Configures a dedicated test database (fixdesk_test) and enforces strict safety guards
 preventing any test from writing to or reading from the production application database.
 """
 
@@ -15,7 +15,7 @@ if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
 # Enforce test database URLs
-TEST_DB_NAME = os.environ.get("TEST_POSTGRES_DB", "business_assistant_test")
+TEST_DB_NAME = os.environ.get("TEST_POSTGRES_DB", "fixdesk_test")
 TEST_DB_URL = os.environ.get(
     "TEST_DATABASE_URL",
     f"postgresql://postgres:postgres_password@localhost:5434/{TEST_DB_NAME}"
@@ -43,15 +43,9 @@ def pytest_configure(config):
     current_db = os.environ.get("POSTGRES_DB", "")
     current_url = os.environ.get("DATABASE_URL", "")
 
-    if "business_assistant" in current_url and not "business_assistant_test" in current_url:
+    if (not current_db.endswith("_test")) or current_db in ("fixdesk", "postgres") or (f"/{TEST_DB_NAME}" not in current_url and "_test" not in current_url):
         raise RuntimeError(
-            f"SAFETY GUARD TRIGGERED: Tests are attempting to run against production database '{current_url}'! "
-            f"Tests must strictly use '{TEST_DB_NAME}'."
-        )
-
-    if current_db == "business_assistant":
-        raise RuntimeError(
-            f"SAFETY GUARD TRIGGERED: POSTGRES_DB is set to '{current_db}'! "
+            f"SAFETY GUARD TRIGGERED: Tests are attempting to run against non-test database '{current_db}' / '{current_url}'! "
             f"Tests must strictly use '{TEST_DB_NAME}'."
         )
 

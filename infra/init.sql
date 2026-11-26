@@ -1,5 +1,5 @@
 -- =============================================================================
--- Database Initialization Script for Business Assistant
+-- Database Initialization Script for Fixdesk
 -- Initializes schema for sales data, pgvector document embeddings,
 -- and configures the dedicated read-only role 'sales_readonly'.
 -- =============================================================================
@@ -164,8 +164,13 @@ BEGIN
 END
 $do$;
 
--- Connection & schema permissions
-GRANT CONNECT ON DATABASE business_assistant TO sales_readonly;
+-- Connection & schema permissions (dynamically binds to active database name)
+DO
+$do$
+BEGIN
+   EXECUTE format('GRANT CONNECT ON DATABASE %I TO sales_readonly', current_database());
+END
+$do$;
 GRANT USAGE ON SCHEMA public TO sales_readonly;
 
 -- Grant SELECT on tables to sales_readonly

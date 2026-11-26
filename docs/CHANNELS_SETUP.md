@@ -1,6 +1,6 @@
 # Support Desk Communication Channels Setup Guide (`CHANNELS_SETUP.md`)
 
-This guide walks step-by-step through connecting **Email (IMAP/SMTP)**, **Slack (Socket Mode)**, and **Microsoft Teams** to the Business Assistant Support Desk.
+This guide walks step-by-step through connecting **Email (IMAP/SMTP)**, **Slack (Socket Mode)**, and **Microsoft Teams** to the Fixdesk Support Desk.
 
 > [!IMPORTANT]
 > **Security Rule**: Every secret/token goes **only** in your local `.env` file (ignored by `.gitignore`). Never commit `.env` or paste tokens into docs or source files.
@@ -25,7 +25,7 @@ The Email worker checks an inbox/folder every **30 seconds** for `UNSEEN` messag
 *(Regular Google account passwords are rejected by IMAP/SMTP.)*
 1. Ensure **2-Step Verification** is enabled on your Google Account ([myaccount.google.com/security](https://myaccount.google.com/security)).
 2. Visit **Google Account -> Security -> 2-Step Verification -> App passwords** (or search `"App passwords"` in the Google Account search bar, as Google occasionally moves this link).
-3. Enter app name `Business Assistant` -> click **Create**.
+3. Enter app name `Fixdesk` -> click **Create**.
 4. Copy the 16-character app password (spaces optional).
 
 ### Step 4: Add to `.env`
@@ -49,7 +49,7 @@ Slack **Socket Mode** opens an outbound WebSocket connection (`xapp-...`) to Sla
 ### Step 1: Create App & Enable Socket Mode
 *(Slack dashboard section names may vary slightly over time.)*
 1. Go to [api.slack.com/apps](https://api.slack.com/apps) -> **Create New App** -> **From scratch**.
-2. Name it `Business Assistant Support`, pick your workspace, and click **Create App**.
+2. Name it `Fixdesk Support`, pick your workspace, and click **Create App**.
 3. In left sidebar -> **Socket Mode** -> toggle **Enable Socket Mode** ON.
 4. Prompted to create an App-Level Token: name it `socket-token`, add scope **`connections:write`**, click **Generate**, and copy the **`xapp-...`** token (`SLACK_APP_TOKEN`).
 
@@ -77,7 +77,7 @@ Slack **Socket Mode** opens an outbound WebSocket connection (`xapp-...`) to Sla
 2. Copy the **Bot User OAuth Token** starting with **`xoxb-...`** (`SLACK_BOT_TOKEN`).
 3. In Slack, open your target channel (e.g. `#support-desk`) and send:
    ```text
-   /invite @Business Assistant Support
+   /invite @Fixdesk Support
    ```
 4. Right-click the channel name -> **View channel details** -> scroll to the bottom to copy the **Channel ID** (looks like `C0123456789`).
    *(To also allow Direct Messages to the bot, include `dm` or your Slack user ID `U01234567` in `SLACK_ALLOWED_CHANNELS`.)*
@@ -93,7 +93,7 @@ SLACK_ALLOWED_CHANNELS=C0123456789,dm
 
 ## 3. Microsoft Teams (Admin Setup Only)
 
-Microsoft Teams is provided as a stub and does **not** run automatically in local mode because Microsoft Bot Framework requires Azure Bot registration and a public HTTPS endpoint. See [TEAMS_SETUP.md](file:///home/kanish/Documents/business-assistant/docs/TEAMS_SETUP.md) for full details.
+Microsoft Teams is provided as a stub and does **not** run automatically in local mode because Microsoft Bot Framework requires Azure Bot registration and a public HTTPS endpoint. See [TEAMS_SETUP.md](docs/TEAMS_SETUP.md) for full details.
 
 ---
 

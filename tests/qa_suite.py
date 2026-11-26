@@ -1,5 +1,5 @@
 """
-Senior QA End-to-End Test Suite for Business Assistant
+Senior QA End-to-End Test Suite for Fixdesk
 ======================================================
 Comprehensive automated verification covering:
 1. PostgreSQL & pgvector schema, types, indices, and role permissions
@@ -61,8 +61,8 @@ class SeniorQARunner:
         print("STAGE 1: DATABASE, SCHEMA INTEGRITY & ROLE SECURITY AUDIT")
         print("="*80)
         
-        db_url = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres_password@localhost:5434/business_assistant")
-        readonly_url = os.environ.get("READONLY_DATABASE_URL", "postgresql://sales_readonly:readonly_password@localhost:5434/business_assistant")
+        db_url = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres_password@localhost:5434/fixdesk")
+        readonly_url = os.environ.get("READONLY_DATABASE_URL", "postgresql://sales_readonly:readonly_password@localhost:5434/fixdesk")
         
         # Test 1.1: Admin connection & vector extension
         conn = psycopg2.connect(db_url)

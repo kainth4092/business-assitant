@@ -1,5 +1,5 @@
 """
-LangGraph State Definition for Business Assistant
+LangGraph State Definition for Fixdesk
 ------------------------------------------------
 Maintains conversational context, agent routing decision, tool execution results,
 source attributions, groundedness evaluation, and retry loop counters.

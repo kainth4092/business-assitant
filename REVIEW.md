@@ -1,4 +1,4 @@
-# Senior Code & Security Review: Business Assistant Redesign
+# Senior Code & Security Review: Fixdesk Redesign
 
 **Scope:** Strict review of the frontend redesign, SSE streaming layer, API integration, database/branch isolation, untrusted input handling, test coverage, and runtime verification status.
 
@@ -54,7 +54,7 @@
    - Frontend never reads `GOOGLE_API_KEY`, DB URLs, or channel credentials; `/api/chat/stream` keeps `BACKEND_URL` server-side and forwards only `{ query, thread_id, route }`.
 2. **Anything that can write to `main` or production database:**
    - Frontend E2E and unit tests never touch git branches or live PostgreSQL (`page.route` and `globalThis.fetch` mocks).
-   - Python `tests/conftest.py` enforces `business_assistant_test` and raises `RuntimeError` if `DATABASE_URL` or `POSTGRES_DB` points to `business_assistant`.
+   - Python `tests/conftest.py` enforces `fixdesk_test` and raises `RuntimeError` if `DATABASE_URL` or `POSTGRES_DB` points to `fixdesk`.
    - `tests/test_zero_mock_guardrails.py::test_zero_rows_in_production_db_after_reset` connects read-only (`SELECT count(*)`) to `PRODUCTION_DATABASE_URL`, and `test_upload_endpoints_validation_and_flow` writes temporary files to `data/` and `docs/` and deletes them in `finally:`.
 3. **Claims not verified by live execution (Environment Blocker):**
    - Docker daemon is inactive in this environment (`/var/run/docker.sock` does not exist), so PostgreSQL + pgvector on `localhost:5434` is down.

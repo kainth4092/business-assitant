@@ -1,3 +1,3 @@
 """
-RAG (Retrieval-Augmented Generation) package for Business Assistant
+RAG (Retrieval-Augmented Generation) package for Fixdesk
 """

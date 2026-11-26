@@ -1,5 +1,5 @@
 """
-Model Context Protocol (MCP) Server for Business Assistant
+Model Context Protocol (MCP) Server for Fixdesk
 Exposes query_sales, search_docs, and get_data_quality_report.
 """
 

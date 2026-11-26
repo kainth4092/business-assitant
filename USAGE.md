@@ -1,6 +1,6 @@
-# Business Assistant — Complete User & Operator Guide (USAGE.md)
+# Fixdesk — Complete User & Operator Guide (USAGE.md)
 
-The **Business Assistant** is an enterprise-grade autonomous analyst workbench powered by FastAPI, LangGraph, Model Context Protocol (MCP), PySpark, and PostgreSQL 16 with `pgvector`, paired with a Next.js App Router frontend.
+The **Fixdesk** is an enterprise-grade autonomous analyst workbench powered by FastAPI, LangGraph, Model Context Protocol (MCP), PySpark, and PostgreSQL 16 with `pgvector`, paired with a Next.js App Router frontend.
 
 The platform is completely **data-agnostic**: you can provide **ANY CSV** dataset and any policy or procedure documents (`.md`, `.txt`, `.pdf`). The assistant will automatically discover the schema, clean the dataset with PySpark, build semantic vector indexes, and allow you to ask natural language questions across structured data, policy documents, or both.
 
@@ -117,7 +117,7 @@ The Support Desk accepts incident messages not only from the **`+ Simulate Clien
 | :--- | :--- | :--- |
 | **Email** | IMAP Polling (30s) + SMTP Reply | `IMAP_HOST`, `IMAP_USER`, `IMAP_APP_PASSWORD`, `SMTP_HOST`, `SMTP_PORT`, `EMAIL_ALLOWED_SENDERS` |
 | **Slack** | Socket Mode (no public URL) | `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`, `SLACK_ALLOWED_CHANNELS` |
-| **Microsoft Teams** | Stub (Admin setup required) | See [TEAMS_SETUP.md](file:///home/kanish/Documents/business-assistant/docs/TEAMS_SETUP.md) |
+| **Microsoft Teams** | Stub (Admin setup required) | See [TEAMS_SETUP.md](docs/TEAMS_SETUP.md) |
 
 - **Automatic Startup**: Running the FastAPI backend (`uvicorn backend.main:app --host 0.0.0.0 --port 8000` or `make start-backend`) automatically starts workers for configured channels and logs `"skipped"` for unconfigured ones.
 - **Standalone Channels Worker Command**: You can also start the background listeners independently with:
@@ -128,7 +128,7 @@ The Support Desk accepts incident messages not only from the **`+ Simulate Clien
   - Open **Support** in [http://localhost:3000](http://localhost:3000) to inspect each channel's live status (`Connected`, `Not configured`, `Paused`, `Error`), last received message timestamp, and toggle listeners On/Off.
   - All inbound messages pass strict `.env` allowlists, deduplication, hourly per-sender rate limits (`SUPPORT_RATE_LIMIT_PER_HOUR=10`), and untrusted prompt-injection scanning.
   - **Human approval is mandatory**: approvals/rejections can only be executed by a logged-in operator in the Web UI, never via a chat message.
-  - See [CHANNELS_SETUP.md](file:///home/kanish/Documents/business-assistant/docs/CHANNELS_SETUP.md) for beginner step-by-step setup instructions.
+  - See [CHANNELS_SETUP.md](docs/CHANNELS_SETUP.md) for beginner step-by-step setup instructions.
 
 ---
 
@@ -138,9 +138,9 @@ The Support Desk accepts incident messages not only from the **`+ Simulate Clien
 2. Index or watch from the CLI:
    ```bash
    ./.venv/bin/project-init list
-   ./.venv/bin/project-init index business-assistant
-   ./.venv/bin/project-init reindex business-assistant
-   ./.venv/bin/project-init index business-assistant --watch
+   ./.venv/bin/project-init index fixdesk
+   ./.venv/bin/project-init reindex fixdesk
+   ./.venv/bin/project-init index fixdesk --watch
    ```
 3. Or open the **`05 Projects`** tab (shortcut `5`) in [http://localhost:3000](http://localhost:3000) to inspect file/chunk counts, commit hash, the **Skipped Files** security audit report, click **Re-Index Incremental**, and ask plain-English codebase questions with clickable `file:line` citations.
 
@@ -150,8 +150,8 @@ The Support Desk accepts incident messages not only from the **`+ Simulate Clien
 
 The project includes strict test isolation preventing any test from modifying production data:
 
-- Tests run against an isolated test database: `business_assistant_test`.
-- Safety guards in `tests/conftest.py` ensure tests fail immediately if pointed to `business_assistant`.
+- Tests run against an isolated test database: `fixdesk_test`.
+- Safety guards in `tests/conftest.py` ensure tests fail immediately if pointed to `fixdesk`.
 
 ```bash
 # Run the complete automated test suite (53 tests)

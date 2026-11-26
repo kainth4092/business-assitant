@@ -1,6 +1,6 @@
 # Microsoft Teams Integration Requirements (`TEAMS_SETUP.md`)
 
-Microsoft Teams is intentionally implemented as a **stub (`TeamsAdapterStub`)** in [teams.py](file:///home/kanish/Documents/business-assistant/backend/support/channels/teams.py) because Microsoft Bot Framework does **not** support outbound-only Socket Mode or simple long polling from a local laptop without cloud registration.
+Microsoft Teams is intentionally implemented as a **stub (`TeamsAdapterStub`)** in [teams.py](backend/support/channels/teams.py) because Microsoft Bot Framework does **not** support outbound-only Socket Mode or simple long polling from a local laptop without cloud registration.
 
 If your organization wants live Microsoft Teams support later, a Microsoft 365 / Azure tenant administrator must provision the following components:
 

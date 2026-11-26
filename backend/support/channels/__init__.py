@@ -1,5 +1,5 @@
 """
-Channel Adapter Package for Business Assistant Support Desk
+Channel Adapter Package for Fixdesk Support Desk
 """
 
 from backend.support.channels.email import EmailAdapter

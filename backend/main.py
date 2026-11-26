@@ -1,5 +1,5 @@
 """
-FastAPI Application Entrypoint for Business Assistant
+FastAPI Application Entrypoint for Fixdesk
 ------------------------------------------------------
 Exposes REST API endpoints:
 - GET  /health: Health check and database connectivity audit
@@ -52,8 +52,8 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(
-    title="Business Assistant API",
-    description="Agentic enterprise assistant combining PySpark sales data and pgvector policy documents",
+    title="Fixdesk API",
+    description="Fixdesk autonomous operations workbench combining PySpark data telemetry, pgvector docs, and safe remediation",
     version="1.0.0",
     lifespan=lifespan,
 )

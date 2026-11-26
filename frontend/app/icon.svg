@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <rect x="2" y="2" width="28" height="28" rx="2" fill="#F3EFE4" stroke="#C8372D" stroke-width="2.5" />
   <rect x="5.5" y="5.5" width="21" height="21" rx="1" fill="none" stroke="#C8372D" stroke-width="1" stroke-dasharray="2 1.5" />
-  <text x="16" y="20" text-anchor="middle" fill="#C8372D" font-family="monospace" font-size="11" font-weight="700">BA</text>
+  <text x="16" y="20" text-anchor="middle" fill="#C8372D" font-family="monospace" font-size="11" font-weight="700">FD</text>
 </svg>

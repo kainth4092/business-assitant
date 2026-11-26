@@ -1,4 +1,4 @@
-# Business Assistant (Chat with your Data + Documents)
+# Fixdesk (Chat with your Data + Documents)
 
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%20%2B%20pgvector-336791.svg)](https://github.com/pgvector/pgvector)
@@ -54,7 +54,7 @@ User Query ──► FastAPI (/chat) ──► LangGraph Agent
 
 ### Step 1: Navigate to Project & Configure Environment
 ```bash
-cd /home/kanish/Documents/business-assistant
+cd .
 
 # Copy example environment configuration
 cp .env.example .env
@@ -154,12 +154,12 @@ Index registered repositories in `projects.yaml` into the isolated PostgreSQL `c
 
 ```bash
 # Index or incrementally re-index a registered project
-./.venv/bin/project-init index business-assistant
-./.venv/bin/project-init reindex business-assistant
-./.venv/bin/project-init index business-assistant --watch
+./.venv/bin/project-init index fixdesk
+./.venv/bin/project-init reindex fixdesk
+./.venv/bin/project-init index fixdesk --watch
 
 # Ask a question from the CLI
-./.venv/bin/project-init ask business-assistant "Where are MCP tools registered?"
+./.venv/bin/project-init ask fixdesk "Where are MCP tools registered?"
 ```
 
 - **MCP Tools (`mcp_server/server.py`)**: `list_projects`, `search_code`, `get_file_outline`, `find_symbol` (all read-only with strict project-root path confinement and `[REDACTED]` scrubbing).

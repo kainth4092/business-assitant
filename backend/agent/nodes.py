@@ -1,5 +1,5 @@
 """
-LangGraph Nodes for Business Assistant
+LangGraph Nodes for Fixdesk
 --------------------------------------
 Implements:
 1. router_node: Intent classification (data, docs, both)

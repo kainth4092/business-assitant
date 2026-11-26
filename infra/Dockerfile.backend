@@ -1,5 +1,5 @@
 # ==============================================================================
-# Production Dockerfile for Business Assistant FastAPI Backend
+# Production Dockerfile for Fixdesk FastAPI Backend
 # Tech Stack: Python 3.11, OpenJDK JRE (for PySpark jobs), PostgreSQL client
 # ==============================================================================
 

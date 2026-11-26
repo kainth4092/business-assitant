@@ -1,7 +1,7 @@
-# Business Assistant — Real Current State Report
+# Fixdesk — Real Current State Report
 
 **Inspection Timestamp:** 2026-11-26  
-**Workspace:** `/home/kanish/Documents/business-assistant`  
+**Workspace:** `.`  
 **Constraint:** Read-only inspection; no features added and no application code modified during this audit.
 
 ---
@@ -14,7 +14,7 @@
 | **Setup Script (`scripts/setup.sh`)** | Inspected `scripts/setup.sh` | **Blocked on DB** | Requires PostgreSQL at `DATABASE_URL` (`localhost:5434`) to apply `infra/init.sql` & `infra/support_schema.sql` and run pipelines. |
 | **PySpark ETL Pipeline** | `.venv/bin/python3 -c "from pipelines.clean_sales import run_sales_pipeline"` | **Imports OK; full DB run not executed** | Imports cleanly, and `data/` already holds output from a prior run (`reviews.csv`, `cleaned_sales.parquet/`, `data_quality_report.json`, `schema_metadata.json`). Full run requires PostgreSQL on `5434`. |
 | **Document Ingestion Pipeline** | `.venv/bin/python3 -c "from pipelines.ingest_docs import ingest_all_docs"` | **Imports OK; full DB run not executed** | Imports cleanly. `docs/` contains only `README.md`, `CHANNELS_SETUP.md`, and `TEAMS_SETUP.md` (all excluded by `is_user_policy_doc`), and DB `5434` is down. |
-| **MCP Server** | `.venv/bin/python3 -c "import mcp_server.server as s; print(s.app.name, ...)"` | **Imports OK; live DB calls blocked** | Loads `MCPServer("business-assistant-mcp")` with `tool_query_sales`, `tool_search_docs`, `tool_get_data_quality_report`. Live SQL/RAG calls fail without PostgreSQL on `5434`. |
+| **MCP Server** | `.venv/bin/python3 -c "import mcp_server.server as s; print(s.app.name, ...)"` | **Imports OK; live DB calls blocked** | Loads `MCPServer("fixdesk-mcp")` with `tool_query_sales`, `tool_search_docs`, `tool_get_data_quality_report`. Live SQL/RAG calls fail without PostgreSQL on `5434`. |
 | **FastAPI Backend** | `.venv/bin/python3 -m uvicorn backend.main:app --host 127.0.0.1 --port 8001` | **Starts & Serves (Degraded)** | `GET /status` returns HTTP `200` with `"status": "degraded"` (PostgreSQL `5434` connection refused), `"llm_live_mode": true`, `"tools_count": 7`. `GET /support/channels` returns HTTP `200` with `['email', 'slack', 'teams']`. |
 | **Next.js Frontend** | `cd frontend && npm run lint && npm run build && npm run start -- -p 3100 -H 127.0.0.1` | **Works** | ESLint `0` errors/warnings; Next.js `16.4.6` (Turbopack) production build succeeds; `next start` serves HTTP `200` and passes Playwright tests. |
 
@@ -74,10 +74,10 @@ Result: **49 passed, 14 failed** out of **63 collected** (2.35s). *(Note: `tests
 
 ## 4. Database Isolation in Tests
 
-- **Separate test database**: **Yes.** `tests/conftest.py` sets `TEST_DB_NAME = os.environ.get("TEST_POSTGRES_DB", "business_assistant_test")` and overrides `POSTGRES_DB`, `DATABASE_URL`, and `READONLY_DATABASE_URL` before test modules load.
-- **Safety guard**: `pytest_configure` in `tests/conftest.py` raises `RuntimeError` if `DATABASE_URL` contains `business_assistant` without `business_assistant_test`, or if `POSTGRES_DB == "business_assistant"`.
+- **Separate test database**: **Yes.** `tests/conftest.py` sets `TEST_DB_NAME = os.environ.get("TEST_POSTGRES_DB", "fixdesk_test")` and overrides `POSTGRES_DB`, `DATABASE_URL`, and `READONLY_DATABASE_URL` before test modules load.
+- **Safety guard**: `pytest_configure` in `tests/conftest.py` raises `RuntimeError` if `DATABASE_URL` contains `fixdesk` without `fixdesk_test`, or if `POSTGRES_DB == "fixdesk"`.
 - **Exceptions**:
-  1. `tests/test_zero_mock_guardrails.py::test_zero_rows_in_production_db_after_reset` intentionally connects read-only (`SELECT count(*)`) to `PRODUCTION_DATABASE_URL` (`business_assistant`) to assert 0 rows remain.
+  1. `tests/test_zero_mock_guardrails.py::test_zero_rows_in_production_db_after_reset` intentionally connects read-only (`SELECT count(*)`) to `PRODUCTION_DATABASE_URL` (`fixdesk`) to assert 0 rows remain.
   2. `tests/test_zero_mock_guardrails.py::test_upload_endpoints_validation_and_flow` writes temporary files (`data/test_upload_dataset.csv`, `docs/test_upload_policy.md`) and deletes them in `finally:`.
 
 ---
@@ -162,7 +162,7 @@ Result: **49 passed, 14 failed** out of **63 collected** (2.35s). *(Note: `tests
 | Docker Compose stack (`infra/docker-compose.yml`) | Yes | No | Docker daemon not running (`/var/run/docker.sock` missing). |
 | PySpark ETL (`pipelines/clean_sales.py`) | Yes | Not verified end-to-end | Module imports; `data/` has prior `reviews.csv` artifacts; live DB load blocked by down Postgres `5434`. |
 | Document ingestion (`pipelines/ingest_docs.py`) | Yes | Not verified end-to-end | Module imports; `docs/` has 0 user docs; live pgvector write blocked by down Postgres `5434`. |
-| MCP server (`mcp_server/server.py`) | Yes | Partial (imports only) | Registers 3 tools (`business-assistant-mcp`); live DB execution blocked by down Postgres `5434`. |
+| MCP server (`mcp_server/server.py`) | Yes | Partial (imports only) | Registers 3 tools (`fixdesk-mcp`); live DB execution blocked by down Postgres `5434`. |
 | FastAPI backend (`backend/main.py`) | Yes | Partial (starts degraded) | `uvicorn` starts and serves HTTP `200` on `/status` & `/support/channels`, degraded without Postgres `5434`. |
 | Chat with routing (`Auto/Data/Docs/Both`) | Yes | Partial (offline tests + UI mocked) | Offline router/retry/chat tests pass (`13/13`); `POST /chat` does not accept `route` from UI (`selectedRoute` is UI-only); live SQL+RAG not verified. |
 | Evidence panel (`Margin.jsx`) | Yes | Partial (UI mocked) | Verified in Playwright with `page.route` mocks; live DB trace not verified. |

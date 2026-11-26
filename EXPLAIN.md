@@ -1,8 +1,8 @@
-# Business Assistant — Plain-English Architecture Guide (`EXPLAIN.md`)
+# Fixdesk — Plain-English Architecture Guide (`EXPLAIN.md`)
 
-## 1. What Business Assistant Does
+## 1. What Fixdesk Does
 
-**Business Assistant** is an internal AI operations control room with three core capabilities backed by PostgreSQL (`pgvector`), PySpark, LangGraph, FastAPI, MCP, and Next.js:
+**Fixdesk** is an internal AI operations control room with three core capabilities backed by PostgreSQL (`pgvector`), PySpark, LangGraph, FastAPI, MCP, and Next.js:
 
 1. **Analytics & Policy Workbench (`01 Analysis`, `03 Quality`, `04 Docs`)**:
    - Analysts upload any CSV dataset (cleaned via PySpark) and policy files (`.md`, `.txt`, `.pdf` chunked into 768-D embeddings).

@@ -27,9 +27,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata = {
-  title: "Business Assistant · Operations Control Log",
+  title: "Fixdesk · Operations Control Log",
   description:
-    "AI operations workbench for SQL telemetry, policy retrieval, and human-approved remediation.",
+    "Fixdesk AI operations workbench for SQL telemetry, policy retrieval, and human-approved remediation.",
 };
 
 export default function RootLayout({ children }) {

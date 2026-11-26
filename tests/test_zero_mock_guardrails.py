@@ -263,7 +263,7 @@ def test_multi_format_document_ingestion():
 # ------------------------------------------------------------------------------
 def test_zero_rows_in_production_db_after_reset():
     """Asserts that the production application database has exactly 0 rows across all tables."""
-    prod_url = os.environ.get("PRODUCTION_DATABASE_URL", "postgresql://postgres:postgres_password@localhost:5434/business_assistant")
+    prod_url = os.environ.get("PRODUCTION_DATABASE_URL", "postgresql://postgres:postgres_password@localhost:5434/fixdesk")
     conn = None
     try:
         conn = psycopg2.connect(prod_url)

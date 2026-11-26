@@ -26,12 +26,12 @@ def get_db_connection(readonly: bool = False):
     if readonly:
         url = os.environ.get(
             "READONLY_DATABASE_URL",
-            "postgresql://sales_readonly:readonly_password@localhost:5434/business_assistant"
+            "postgresql://sales_readonly:readonly_password@localhost:5434/fixdesk"
         )
         return psycopg2.connect(url)
     url = os.environ.get(
         "DATABASE_URL",
-        "postgresql://postgres:postgres_password@localhost:5434/business_assistant"
+        "postgresql://postgres:postgres_password@localhost:5434/fixdesk"
     )
     return psycopg2.connect(url)
 

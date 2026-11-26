@@ -1,5 +1,5 @@
 """
-Autonomous Agent package for Business Assistant (LangChain + LangGraph)
+Autonomous Agent package for Fixdesk (LangChain + LangGraph)
 """
 
 from backend.agent.graph import agent_graph, build_agent_graph

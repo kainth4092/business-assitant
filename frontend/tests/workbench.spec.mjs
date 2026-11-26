@@ -163,8 +163,8 @@ function attachEmptyBackendRoutes(page) {
           database_ready: true,
           projects: [
             {
-              name: "business-assistant",
-              local_path: "/repo/business-assistant",
+              name: "fixdesk",
+              local_path: "/repo/fixdesk",
               default_branch: "main",
               status: "not_indexed",
               last_commit_hash: null,
@@ -177,15 +177,15 @@ function attachEmptyBackendRoutes(page) {
         }),
       });
     }
-    if (p === "/projects/business-assistant/index-status") {
+    if (p === "/projects/fixdesk/index-status") {
       return route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
           status: "not_indexed",
           project: {
-            name: "business-assistant",
-            local_path: "/repo/business-assistant",
+            name: "fixdesk",
+            local_path: "/repo/fixdesk",
             default_branch: "main",
             status: "not_indexed",
             file_count: 0,
@@ -196,11 +196,11 @@ function attachEmptyBackendRoutes(page) {
         }),
       });
     }
-    if (p === "/projects/business-assistant/skipped") {
+    if (p === "/projects/fixdesk/skipped") {
       return route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ status: "SUCCESS", project: "business-assistant", skipped_files: [] }),
+        body: JSON.stringify({ status: "SUCCESS", project: "fixdesk", skipped_files: [] }),
       });
     }
     return route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
@@ -684,8 +684,8 @@ function attachPopulatedBackendRoutes(page, fixtures, state = { dqShouldFailOnce
           database_ready: true,
           projects: [
             {
-              name: "business-assistant",
-              local_path: "/repo/business-assistant",
+              name: "fixdesk",
+              local_path: "/repo/fixdesk",
               default_branch: "main",
               status: "indexed",
               last_commit_hash: "4d966f0929cab11d",
@@ -699,15 +699,15 @@ function attachPopulatedBackendRoutes(page, fixtures, state = { dqShouldFailOnce
       });
     }
 
-    if (p === "/projects/business-assistant/index-status") {
+    if (p === "/projects/fixdesk/index-status") {
       return route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
           status: "indexed",
           project: {
-            name: "business-assistant",
-            local_path: "/repo/business-assistant",
+            name: "fixdesk",
+            local_path: "/repo/fixdesk",
             default_branch: "main",
             status: "indexed",
             last_commit_hash: "4d966f0929cab11d",
@@ -729,13 +729,13 @@ function attachPopulatedBackendRoutes(page, fixtures, state = { dqShouldFailOnce
       });
     }
 
-    if (p === "/projects/business-assistant/skipped") {
+    if (p === "/projects/fixdesk/skipped") {
       return route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
           status: "SUCCESS",
-          project: "business-assistant",
+          project: "fixdesk",
           skipped_files: [
             {
               file_path: ".env",
@@ -754,13 +754,13 @@ function attachPopulatedBackendRoutes(page, fixtures, state = { dqShouldFailOnce
       });
     }
 
-    if (p === "/projects/business-assistant/index" && route.request().method() === "POST") {
+    if (p === "/projects/fixdesk/index" && route.request().method() === "POST") {
       return route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
           status: "SUCCESS",
-          project: "business-assistant",
+          project: "fixdesk",
           commit_hash: "4d966f0929cab11d",
           incremental: true,
           scanned_files: 46,
@@ -774,13 +774,13 @@ function attachPopulatedBackendRoutes(page, fixtures, state = { dqShouldFailOnce
       });
     }
 
-    if (p === "/projects/business-assistant/ask" && route.request().method() === "POST") {
+    if (p === "/projects/fixdesk/ask" && route.request().method() === "POST") {
       return route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
           status: "SUCCESS",
-          project: "business-assistant",
+          project: "fixdesk",
           question: "Where are MCP tools registered?",
           found: true,
           answer:
@@ -816,7 +816,7 @@ function attachPopulatedBackendRoutes(page, fixtures, state = { dqShouldFailOnce
   });
 }
 
-test.describe("Business Assistant Workbench Redesign", () => {
+test.describe("Fixdesk Workbench", () => {
   test("Empty / first-run onboarding state passes accessibility & responsive checks in light and dark themes", async ({
     page,
   }) => {
@@ -831,6 +831,8 @@ test.describe("Business Assistant Workbench Redesign", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/");
 
+    await expect(page).toHaveTitle(/Fixdesk/);
+    await expect(page.getByText("Fixdesk", { exact: true }).first()).toBeVisible();
     await expect(page.getByRole("heading", { name: "Upload a CSV to begin" })).toBeVisible();
     await expect(page.getByText("Upload a CSV", { exact: true })).toBeVisible();
 
@@ -1119,7 +1121,7 @@ test.describe("Business Assistant Workbench Redesign", () => {
 
     // Ask question & inspect clickable citation
     await page
-      .getByLabel(/Ask a question about business-assistant/i)
+      .getByLabel(/Ask a question about fixdesk/i)
       .fill("Where are MCP tools registered?");
     await page.getByRole("button", { name: "Ask", exact: true }).click();
     await expect(page.getByText(/MCP tools are registered in/i)).toBeVisible();

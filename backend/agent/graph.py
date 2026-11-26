@@ -1,5 +1,5 @@
 """
-LangGraph Workflow Graph Definition for Business Assistant
+LangGraph Workflow Graph Definition for Fixdesk
 -----------------------------------------------------------
 Assembles the complete state machine:
 Router -> Agent (Tools) -> Answer -> Check (Groundedness)

@@ -1,5 +1,5 @@
 """
-MCP Server Entrypoint for Business Assistant
+MCP Server Entrypoint for Fixdesk
 --------------------------------------------
 Implements an MCP server exposing 3 enterprise tools:
 - query_sales: Read-only SELECT queries on the PostgreSQL dataset (`sales` table) with strict safety validation.
@@ -30,7 +30,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("MCPServer")
 
 # Initialize MCP Server instance
-app = MCPServer("business-assistant-mcp")
+app = MCPServer("fixdesk-mcp")
 
 @app.tool()
 def tool_query_sales(sql_query: str) -> str:
@@ -102,5 +102,5 @@ def find_symbol(project: str, symbol_name: str, limit: int = 15) -> str:
 
 
 if __name__ == "__main__":
-    logger.info("Starting Business Assistant MCP Server on stdio...")
+    logger.info("Starting Fixdesk MCP Server on stdio...")
     app.run()

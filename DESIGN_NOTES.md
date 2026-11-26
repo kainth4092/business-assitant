@@ -1,8 +1,8 @@
-# Design System & Architecture Notes: Business Assistant
+# Design System & Architecture Notes: Fixdesk
 
 ## 1. Design Concept: Japanese Stationery × Air-Traffic-Control Flight Strips
 
-Business Assistant is a dense, keyboard-first AI operations control room designed for data analysts, engineers, and engineering managers who work in the tool all day.
+Fixdesk is a dense, keyboard-first AI operations control room designed for data analysts, engineers, and engineering managers who work in the tool all day.
 
 It deliberately combines two physical reference worlds:
 1. **Stationery world (MUJI / Hobonichi notebooks)**: warm matte paper (`#F3EFE4`), raised ivory sheet (`#FBF9F2`), recessed ledger wells (`#E8E2D2`), subtle 4% opacity ruled grid paper (`24px` square grid), ink (`#16202F`), muted ink (`#55524A`), red hanko seal stamps (`#C8372D`), and yellow highlighter marker strokes (`#F2D45C`).
@@ -18,7 +18,7 @@ It deliberately combines two physical reference worlds:
 
 ## 2. Color Tokens (CSS Custom Properties)
 
-Defined in [globals.css](file:///home/kanish/Documents/business-assistant/frontend/app/globals.css) and mapped in [tailwind.config.js](file:///home/kanish/Documents/business-assistant/frontend/tailwind.config.js).
+Defined in [globals.css](frontend/app/globals.css) and mapped in [tailwind.config.js](frontend/tailwind.config.js).
 
 | Token | Light ("Stationery Day Shift") | Dark ("Night Shift") | Role |
 | :--- | :--- | :--- | :--- |
@@ -42,7 +42,7 @@ All foreground text uses `color-mix(in srgb, <accent> 64-88%, var(--ink))` (`--*
 
 ## 3. Typography & Type Scale
 
-Loaded locally via `next/font/google` in [layout.jsx](file:///home/kanish/Documents/business-assistant/frontend/app/layout.jsx) with system fallback stacks:
+Loaded locally via `next/font/google` in [layout.jsx](frontend/app/layout.jsx) with system fallback stacks:
 - **Headings & Serif Log Answers (`--font-serif`)**: `Shippori Mincho` (weights `400–800`), fallback `"Hiragino Mincho ProN", Georgia, serif`.
   - Page title: `24px–30px` (`text-2xl sm:text-3xl font-semibold`)
   - Log entry / question heading: `18px–20px` (`text-lg sm:text-xl font-semibold`)

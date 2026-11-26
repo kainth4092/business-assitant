@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Business Assistant - Automated Environment & Pipeline Setup Script
+# Fixdesk - Automated Environment & Pipeline Setup Script
 # ==============================================================================
 # Idempotent setup script that prepares the database, executes the PySpark
 # cleaning pipeline, and ingests vectorized policy documents.
@@ -13,7 +13,7 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${ROOT_DIR}"
 
 echo "========================================================================"
-echo "          Starting Business Assistant Automated Setup                   "
+echo "                Starting Fixdesk Automated Setup                         "
 echo "========================================================================"
 
 # 1. Check Python virtual environment
@@ -64,7 +64,7 @@ ${PYTHON_BIN} -c "
 import os, sys, time, psycopg2
 from dotenv import load_dotenv
 load_dotenv()
-db_url = os.environ.get('DATABASE_URL', 'postgresql://business_admin:admin_password@localhost:5434/business_assistant')
+db_url = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres_password@localhost:5434/fixdesk')
 max_retries = 20
 for attempt in range(max_retries):
     try:
@@ -83,7 +83,7 @@ ${PYTHON_BIN} -c "
 import os, psycopg2
 from dotenv import load_dotenv
 load_dotenv()
-db_url = os.environ.get('DATABASE_URL', 'postgresql://business_admin:admin_password@localhost:5434/business_assistant')
+db_url = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres_password@localhost:5434/fixdesk')
 conn = psycopg2.connect(db_url)
 conn.autocommit = True
 cur = conn.cursor()
@@ -110,7 +110,7 @@ echo "[6/6] Executing Document Vector Ingestion into pgvector..."
 ${PYTHON_BIN} pipelines/ingest_docs.py
 
 echo "========================================================================"
-echo " Business Assistant setup complete! Real data is loaded and ready.     "
+echo " Fixdesk setup complete! Real data is loaded and ready.                  "
 echo " Start backend:  .venv/bin/python3 -m uvicorn backend.main:app --port 8000"
 echo " Start frontend: cd frontend && npm run dev (or npm run start)"
 echo " Open:           http://localhost:3000"

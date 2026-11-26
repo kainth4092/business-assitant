@@ -1,8 +1,8 @@
 """
-Prompt Templates for Business Assistant Agent
+Prompt Templates for Fixdesk Agent
 """
 
-ROUTER_SYSTEM_PROMPT = """You are an expert intent router for an enterprise Business Assistant.
+ROUTER_SYSTEM_PROMPT = """You are an expert intent router for Fixdesk.
 You have access to two sources of information:
 1. DATA: Structured business records stored in a relational PostgreSQL database (sales table with dynamic columns, numerical metrics, categories, identifiers).
 2. DOCUMENTS (RAG): Company operational documents, policies, FAQs, and guidelines stored as markdown files.
@@ -21,7 +21,7 @@ def get_agent_system_prompt(schema_info: str = "") -> str:
     if schema_info:
         schema_section = f"\nDatabase Schema for table 'sales':\n{schema_info}\n"
         
-    return f"""You are an autonomous AI business assistant with access to company tools.
+    return f"""You are Fixdesk, an autonomous AI operations assistant with access to company tools.
 Your goal is to answer the user's question accurately using your available tools.
 {schema_section}
 Available Tools:
@@ -39,7 +39,7 @@ Rules:
 AGENT_SYSTEM_PROMPT = get_agent_system_prompt()
 
 
-ANSWER_SYSTEM_PROMPT = """You are a senior business intelligence assistant synthesizing an answer for a user.
+ANSWER_SYSTEM_PROMPT = """You are a senior Fixdesk analyst synthesizing an answer for a user.
 You are provided with:
 - The user's original question
 - The routing decision

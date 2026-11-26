@@ -733,7 +733,7 @@ def test_security_redaction_and_scanner_direct():
 def test_postgres_code_rag_schema_and_secret_free_when_db_running(fixture_repo, monkeypatch):
     """
     When PostgreSQL test instance (5434) is up, execute full schema + index against
-    `business_assistant_test.code_rag` and verify HNSW table contains zero secret strings.
+    `fixdesk_test.code_rag` and verify HNSW table contains zero secret strings.
     Skips cleanly when PostgreSQL test container is offline.
     """
     test_db_url = os.environ["DATABASE_URL"]
@@ -840,4 +840,4 @@ def test_postgres_store_sql_isolation_and_cli_roundtrip(fixture_repo, monkeypatc
         check=True,
     )
     listed = json.loads(proc.stdout)
-    assert any(item["name"] == "business-assistant" for item in listed)
+    assert any(item["name"] == "fixdesk" for item in listed)

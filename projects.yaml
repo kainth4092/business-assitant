@@ -2,7 +2,7 @@
 # Supports indexing multiple repositories while keeping secrets strictly isolated.
 
 projects:
-  - name: business-assistant
+  - name: fixdesk
     local_path: .
     default_branch: main
     include:

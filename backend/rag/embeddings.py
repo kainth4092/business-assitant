@@ -1,5 +1,5 @@
 """
-Embedding Utilities for Business Assistant RAG
+Embedding Utilities for Fixdesk RAG
 Provides unified interface for Google Gemini 768-dimensional embeddings (`gemini-embedding-2`),
 with a deterministic 768-dimensional fallback when offline or during automated testing.
 """
