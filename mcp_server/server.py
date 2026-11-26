@@ -2,7 +2,7 @@
 MCP Server Entrypoint for Business Assistant
 --------------------------------------------
 Implements an MCP server exposing 3 enterprise tools:
-- query_sales: Read-only SELECT queries on BigMart sales dataset with strict safety validation.
+- query_sales: Read-only SELECT queries on the PostgreSQL dataset (`sales` table) with strict safety validation.
 - search_docs: Semantic search over company policies and guidelines using pgvector embeddings.
 - get_data_quality_report: Inspection of the PySpark data cleaning audit metrics.
 
@@ -33,7 +33,7 @@ def tool_query_sales(sql_query: str) -> str:
     Enforces single statement, blocks comments/mutations, and caps results to 100 rows.
     
     Args:
-        sql_query: Valid SQL query starting with SELECT (e.g. 'SELECT item_type, SUM(item_outlet_sales) FROM sales GROUP BY item_type')
+        sql_query: Valid SQL query starting with SELECT (e.g. 'SELECT category, SUM(amount) FROM sales GROUP BY category')
     """
     result = query_sales(sql_query)
     return json.dumps(result, indent=2)
@@ -41,10 +41,10 @@ def tool_query_sales(sql_query: str) -> str:
 @app.tool()
 def tool_search_docs(query: str, top_k: int = 3) -> str:
     """
-    Performs semantic vector search over company documents (return policy, FAQ, promotions, guidelines, pricing).
+    Performs semantic vector search over uploaded company documents using pgvector embeddings.
     
     Args:
-        query: Natural language query (e.g. 'What is the return window for perishables?')
+        query: Natural language query against your indexed documentation
         top_k: Number of relevant snippets to return (default: 3)
     """
     result = search_docs(query, top_k)

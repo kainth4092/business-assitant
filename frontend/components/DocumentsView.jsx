@@ -1,198 +1,376 @@
 "use client";
 
-import React, { useState } from "react";
-import {
-  FileText,
-  Database,
-  Layers,
-  Search,
-  RefreshCw,
-  ShieldCheck,
-  BookOpen,
-  ChevronRight,
-} from "lucide-react";
-import StatTile from "./StatTile";
+import React, { useState, useRef } from "react";
+import { Search, RefreshCw, Upload, X, BookOpen } from "lucide-react";
+import IndexCard from "./IndexCard";
+import Skeleton from "./Skeleton";
+import ErrorState from "./ErrorState";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function DocumentsView({
   documents = [],
   systemHealth = null,
   onRefresh = () => {},
   onSelectDocPrompt = () => {},
-  isLoading = false
+  isLoading = false,
+  error = null,
+  externalDocFile = null,
+  onClearExternalDoc = () => {},
 }) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState(null);
+  const [uploadError, setUploadError] = useState(null);
+
+  // Selected document chunk inspection
+  const [selectedDoc, setSelectedDoc] = useState(null);
+  const [chunks, setChunks] = useState([]);
+  const [isLoadingChunks, setIsLoadingChunks] = useState(false);
+  const [chunksError, setChunksError] = useState(null);
+
+  const fileInputRef = useRef(null);
+
+  const loadChunks = async (doc) => {
+    setSelectedDoc(doc);
+    setIsLoadingChunks(true);
+    setChunksError(null);
+    setChunks([]);
+    try {
+      const res = await fetch(
+        `${API_BASE}/documents/${encodeURIComponent(doc.source_file)}/chunks`
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.detail || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setChunks(data.chunks || []);
+    } catch (err) {
+      setChunksError(err.message || "Could not load document chunks.");
+    } finally {
+      setIsLoadingChunks(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (!externalDocFile || documents.length === 0) return;
+    const found = documents.find((d) => d.source_file === externalDocFile);
+    onClearExternalDoc();
+    if (!found) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `${API_BASE}/documents/${encodeURIComponent(found.source_file)}/chunks`
+        );
+        if (cancelled) return;
+        setSelectedDoc(found);
+        if (!res.ok) {
+          const err = await res.json().catch(() => null);
+          throw new Error(err?.detail || `HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        if (!cancelled) {
+          setChunks(data.chunks || []);
+          setChunksError(null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setChunks([]);
+          setChunksError(err.message || "Could not load document chunks.");
+        }
+      } finally {
+        if (!cancelled) setIsLoadingChunks(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalDocFile, documents]);
+
+  const handleDirectUpload = async (e) => {
+    setUploadError(null);
+    setUploadMessage(null);
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const allowed = [".md", ".txt", ".pdf"];
+    const invalid = files.filter(
+      (f) => !allowed.some((ext) => f.name.toLowerCase().endsWith(ext))
+    );
+    if (invalid.length > 0) {
+      setUploadError(
+        `Unsupported format: ${invalid.map((f) => f.name).join(", ")}. Supported: .md, .txt, .pdf`
+      );
+      return;
+    }
+
+    setIsUploading(true);
+    const formData = new FormData();
+    files.forEach((f) => formData.append("files", f));
+
+    try {
+      const res = await fetch(`${API_BASE}/upload/documents`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.detail || `Upload failed (HTTP ${res.status})`);
+      }
+      setUploadMessage(
+        `Indexed ${data.indexed_chunks ?? 0} vector chunk(s) from ${files.length} file(s).`
+      );
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      onRefresh();
+    } catch (err) {
+      setUploadError(err.message);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const filteredDocs = (documents || []).filter((doc) => {
-    const term = searchTerm.toLowerCase();
-    const source = (doc.source_file || "").toLowerCase();
-    const title = (doc.sample_title || "").toLowerCase();
-    return source.includes(term) || title.includes(term);
+    const q = searchTerm.toLowerCase();
+    return (
+      (doc.source_file || "").toLowerCase().includes(q) ||
+      (doc.sample_title || "").toLowerCase().includes(q)
+    );
   });
 
   const totalChunks = (documents || []).reduce(
-    (acc, d) => acc + (Number(d.total_chunks) || 0),
+    (sum, d) => sum + (Number(d.total_chunks) || 0),
     0
   );
 
-  const embeddingDim = systemHealth?.embedding_dimension
-    ? `${systemHealth.embedding_dimension}-D`
-    : "768-D";
-
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-6 pb-24 animate-fade-up">
-      {/* Header */}
-      <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-surface-low rounded-xl border border-border">
+    <div className="w-full max-w-6xl mx-auto space-y-4 pb-16">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".md,.txt,.pdf"
+        multiple
+        onChange={handleDirectUpload}
+        className="hidden"
+        id="docs-catalog-upload-input"
+      />
+
+      {/* Catalog Header */}
+      <section className="border border-grid rounded-xs bg-raised p-4 paper-stack flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="space-y-1">
-          <div className="flex items-center gap-2 font-mono text-label-telemetry font-bold uppercase text-accent-amber tracking-wider">
-            <BookOpen className="w-4 h-4 stroke-[2]" />
-            <span>Knowledge Base &middot; pgvector RAG</span>
+          <div className="font-mono text-[10.5px] font-bold uppercase tracking-wider text-route-docs-ink">
+            Card Catalog · pgvector ({systemHealth?.embedding_dimension || 768}-D)
           </div>
-          <h1 className="font-headline text-headline-lg text-primary font-bold tracking-tight">
-            Document Repository
+          <h1 className="font-serif text-2xl font-semibold text-ink">
+            Documents Repository
           </h1>
-          <p className="font-body text-body-md text-muted max-w-2xl">
-            Company policies and operational procedures vectorized with Gemini embeddings and stored in PostgreSQL pgvector for semantic retrieval.
+          <p className="text-xs text-muted">
+            {documents.length} {documents.length === 1 ? "document" : "documents"} ·{" "}
+            <span className="tabular-mono font-semibold text-ink">
+              {totalChunks.toLocaleString()}
+            </span>{" "}
+            indexed chunks. Select any index card to inspect its chunks.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <button
-            onClick={onRefresh}
-            disabled={isLoading}
-            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-mono font-bold rounded-lg border border-border bg-surface hover:bg-surface-high text-primary shadow-xs transition-all"
-            title="Reload indexed document sources"
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xs border border-ink bg-ink text-paper font-mono text-xs font-bold uppercase tracking-wider hover:opacity-90 cursor-pointer disabled:opacity-50"
           >
-            <RefreshCw className={`w-3.5 h-3.5 stroke-[2] ${isLoading ? "animate-spin" : ""}`} />
-            <span>Refresh Docs</span>
+            <Upload className="w-3.5 h-3.5" strokeWidth={1.6} />
+            <span>{isUploading ? "Indexing..." : "Upload Docs"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={isLoading || isUploading}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xs border border-grid bg-paper text-ink hover:border-ink font-mono text-xs font-semibold cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw
+              className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`}
+              strokeWidth={1.6}
+            />
+            <span>Refresh</span>
           </button>
         </div>
       </section>
 
-      {/* 4 Stat Tiles (Strictly Live API Data) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <StatTile
-          icon={FileText}
-          value={documents?.length ?? 0}
-          label="Operational SOP Files"
-          accent="amber"
-          badge="/DOCS"
-        />
-        <StatTile
-          icon={Layers}
-          value={totalChunks}
-          label="Vectorized Chunks"
-          accent="lime"
-          badge="HNSW"
-        />
-        <StatTile
-          icon={Database}
-          value="pgvector"
-          label="Vector Store"
-          accent="cyan"
-          badge="PG 16"
-        />
-        <StatTile
-          icon={ShieldCheck}
-          value={systemHealth?.pgvector_ready ? "Active" : "Ready"}
-          label="Cosine Index"
-          accent="emerald"
-          badge={embeddingDim}
-        />
-      </div>
+      {uploadMessage && (
+        <div className="px-3.5 py-2.5 rounded-xs border border-sage bg-sage-tint text-sage-ink font-mono text-xs flex items-center justify-between gap-2">
+          <span>{uploadMessage}</span>
+          <button
+            type="button"
+            onClick={() => setUploadMessage(null)}
+            className="underline font-bold cursor-pointer"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
-      {/* Search / Filter Input */}
-      <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg border border-border bg-surface shadow-xs">
-        <Search className="w-4 h-4 text-muted stroke-[2]" />
+      {uploadError && (
+        <ErrorState
+          title="Document Upload Failed"
+          message={uploadError}
+          onRetry={() => setUploadError(null)}
+          retryLabel="Dismiss"
+        />
+      )}
+
+      {error && (
+        <ErrorState
+          title="Could Not Load Documents"
+          message={error}
+          onRetry={onRefresh}
+        />
+      )}
+
+      {/* Filter Bar */}
+      <div className="flex items-center gap-2 px-3 py-2 rounded-xs border border-grid bg-raised">
+        <Search className="w-3.5 h-3.5 text-muted shrink-0" strokeWidth={1.5} />
+        <label htmlFor="docs-filter-input" className="sr-only">
+          Filter documents
+        </label>
         <input
+          id="docs-filter-input"
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Filter indexed documents by filename or title..."
-          className="w-full bg-transparent text-xs text-primary placeholder:text-muted focus:outline-none font-sans"
+          placeholder="Filter catalog by title or filename..."
+          className="w-full bg-transparent text-xs text-ink placeholder:text-muted font-mono focus:outline-none"
         />
         {searchTerm && (
           <button
+            type="button"
             onClick={() => setSearchTerm("")}
-            className="text-[11px] font-mono font-bold text-muted hover:text-primary px-2 py-0.5 rounded bg-surface-container"
+            className="font-mono text-[10.5px] text-muted hover:text-ink cursor-pointer"
           >
             Clear
           </button>
         )}
       </div>
 
-      {/* Document Catalog Cards */}
-      <div className="space-y-3">
-        {filteredDocs.length === 0 ? (
-          <div className="p-8 text-center border border-border rounded-lg bg-surface text-muted text-xs font-mono space-y-2">
-            <BookOpen className="w-6 h-6 stroke-[1.5] mx-auto text-muted mb-2 opacity-60" />
-            <div className="font-bold text-primary">No Documents Ingested Yet</div>
-            <p className="max-w-md mx-auto text-muted leading-relaxed font-body">
-              {searchTerm
-                ? `No indexed documents matching "${searchTerm}".`
-                : "No company documents have been indexed into pgvector yet. Place markdown files in /docs and execute the ingestion script."}
-            </p>
+      {/* Main Split: Card Catalog + Optional Chunk Inspector */}
+      {isLoading && documents.length === 0 ? (
+        <Skeleton variant="strips" count={3} />
+      ) : filteredDocs.length === 0 ? (
+        <div className="border border-grid rounded-xs bg-raised p-8 text-center space-y-3 paper-stack">
+          <BookOpen className="w-7 h-7 mx-auto text-muted" strokeWidth={1.5} />
+          <div className="font-serif text-xl font-semibold text-ink">
+            No documents yet
           </div>
-        ) : (
-          filteredDocs.map((doc, idx) => {
-            const samplePrompt = `What are the key policy guidelines outlined in ${doc.source_file}?`;
-            const docTitle = doc.sample_title || doc.source_file.replace(".md", "").replace(/_/g, " ").toUpperCase();
+          <p className="text-xs text-muted max-w-md mx-auto leading-relaxed">
+            {searchTerm
+              ? `No indexed documents match "${searchTerm}".`
+              : "Upload .md, .txt, or .pdf company documents to vectorize them into pgvector."}
+          </p>
+          {!searchTerm && (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xs border border-ink bg-ink text-paper font-mono text-xs font-bold uppercase tracking-wider cursor-pointer"
+            >
+              <Upload className="w-3.5 h-3.5" strokeWidth={1.6} />
+              <span>Upload Documents</span>
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="catalog-container">
+            <div className="catalog-grid">
+              {filteredDocs.map((doc, idx) => (
+                <IndexCard
+                  key={doc.source_file || idx}
+                  doc={doc}
+                  isSelected={selectedDoc?.source_file === doc.source_file}
+                  onSelect={loadChunks}
+                  onAskQuestion={onSelectDocPrompt}
+                />
+              ))}
+            </div>
+          </div>
 
-            return (
-              <div
-                key={doc.source_file || idx}
-                className="p-4 rounded-lg border border-border bg-surface hover:border-accent-amber/50 transition-all duration-normal space-y-3"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-mono font-bold px-1.5 py-0.5 rounded bg-surface-container text-primary border border-border">
-                        DOC_{String(idx + 1).padStart(2, "0")}
-                      </span>
-                      <h3 className="font-headline text-body-lg font-bold text-primary">
-                        {docTitle}
-                      </h3>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-xs font-mono text-muted">
-                      <FileText className="w-3.5 h-3.5 text-accent-amber stroke-[2]" />
-                      <span className="font-semibold text-primary">{doc.source_file}</span>
-                      <span>&middot;</span>
-                      <span className="text-accent-amber font-bold tabular-nums">
-                        {doc.total_chunks} chunks
-                      </span>
-                    </div>
-
-                    <p className="font-body text-body-md text-muted mt-1 leading-relaxed max-w-2xl">
-                      Standard operating procedures and policy guidelines vectorized for semantic retrieval.
-                    </p>
+          {/* Selected Document Chunks Ledger */}
+          {selectedDoc && (
+            <section
+              aria-label={`Chunks for ${selectedDoc.source_file}`}
+              className="border border-ink rounded-xs bg-raised paper-stack-strong overflow-hidden"
+            >
+              <div className="px-4 py-2.5 border-b border-grid bg-sunken flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="font-mono text-[10px] uppercase tracking-wider text-muted font-bold">
+                    Indexed Chunks
                   </div>
-
-                  <div className="shrink-0 pt-1">
-                    <button
-                      onClick={() => onSelectDocPrompt(samplePrompt)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold rounded-md bg-surface-container hover:bg-accent-amber/20 hover:text-accent-amber border border-border text-primary transition-all group"
-                      title="Run a query against this document"
-                    >
-                      <span>Ask Question</span>
-                      <ChevronRight className="w-3.5 h-3.5 stroke-[2] group-hover:translate-x-0.5 transition-transform" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="pt-2.5 border-t border-border flex items-center justify-between text-[11px] text-muted font-mono">
-                  <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-accent-emerald" />
-                    <span>pgvector cosine similarity (&lt;=&gt;)</span>
-                  </div>
-                  <div className="text-[11px] text-muted truncate max-w-xs sm:max-w-md italic">
-                    &ldquo;{samplePrompt}&rdquo;
+                  <div className="font-serif text-base font-semibold text-ink truncate">
+                    {selectedDoc.sample_title || selectedDoc.source_file}{" "}
+                    <span className="font-mono text-xs text-muted font-normal">
+                      ({selectedDoc.source_file})
+                    </span>
                   </div>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedDoc(null);
+                    setChunks([]);
+                  }}
+                  className="p-1 rounded-xs border border-grid bg-raised text-ink cursor-pointer"
+                  aria-label="Close chunk viewer"
+                >
+                  <X className="w-4 h-4" strokeWidth={1.6} />
+                </button>
               </div>
-            );
-          })
-        )}
-      </div>
+
+              <div className="p-4">
+                {isLoadingChunks ? (
+                  <Skeleton variant="strips" count={3} />
+                ) : chunksError ? (
+                  <ErrorState
+                    title="Could Not Load Chunks"
+                    message={chunksError}
+                    onRetry={() => loadChunks(selectedDoc)}
+                  />
+                ) : chunks.length === 0 ? (
+                  <div className="font-mono text-xs text-muted py-4 text-center">
+                    No chunks found for this document.
+                  </div>
+                ) : (
+                  <div className="space-y-2.5 max-h-[460px] overflow-y-auto pr-1">
+                    {chunks.map((chunk, cIdx) => (
+                      <div
+                        key={chunk.chunk_id || cIdx}
+                        className="p-3 rounded-xs border border-grid bg-paper/70 space-y-1.5"
+                      >
+                        <div className="flex items-center justify-between gap-2 font-mono text-[10.5px] text-muted">
+                          <span className="font-bold text-ink">
+                            Chunk {(chunk.chunk_index ?? cIdx) + 1} of{" "}
+                            {chunk.total_chunks || chunks.length}
+                          </span>
+                          {chunk.title && (
+                            <span className="truncate max-w-xs">{chunk.title}</span>
+                          )}
+                        </div>
+                        <p className="font-sans text-xs text-ink leading-relaxed whitespace-pre-wrap break-words">
+                          {chunk.content}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+        </div>
+      )}
     </div>
   );
 }

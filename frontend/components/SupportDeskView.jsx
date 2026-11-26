@@ -1,110 +1,88 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import {
-  LifeBuoy,
-  Send,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
-  ShieldCheck,
-  Terminal,
-  FileCode,
-  Copy,
-  Check,
-  RefreshCw,
-  RotateCw,
-  GitPullRequest,
-  Database,
-  Layers,
-  ArrowRight,
-  User,
-  MessageSquare,
-  Sparkles,
-  XCircle,
-  HelpCircle,
-  Plus,
-  X
-} from "lucide-react";
-import TicketList from "./TicketList";
+import React, { useState, useEffect, useRef } from "react";
+import { RefreshCw, Send, X } from "lucide-react";
+import StripBoard from "./StripBoard";
 import TicketDetail from "./TicketDetail";
+import ChannelStatus from "./ChannelStatus";
+import ErrorState from "./ErrorState";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-const PRESET_CLIENT_MESSAGES = [
-  {
-    type: "data_issue",
-    label: "Data Issue: Inconsistent Fat Labels",
-    sender: "Alex Chen",
-    email: "alex.chen@bigmart-retail.com",
-    channel: "slack",
-    message: "In the sales reports, LF and Low Fat are showing up as separate categories. Can you merge them?"
-  },
-  {
-    type: "code_bug",
-    label: "Code Bug: Inverted Discount Calculation",
-    sender: "David Miller",
-    email: "david.miller@bigmart-retail.com",
-    channel: "teams",
-    message: "The discount calculation in demo_target calculates the discounted price as price + discount instead of price - discount! Outlet totals are inflated."
-  },
-  {
-    type: "question",
-    label: "Policy Inquiry: Perishable Food Returns",
-    sender: "Elena Rostova",
-    email: "elena.r@bigmart-retail.com",
-    channel: "webhook",
-    message: "What is our store policy on customer returns for perishable dairy and meat items?"
-  }
-];
-
-export default function SupportDeskView({ onUpdatePendingCount = () => {} }) {
+export default function SupportDeskView({
+  onUpdatePendingCount = () => {},
+  externalTicketId = null,
+  onClearExternalTicket = () => {},
+}) {
   const [tickets, setTickets] = useState([]);
+  const [channels, setChannels] = useState([]);
+  const [togglingChannelId, setTogglingChannelId] = useState(null);
   const [selectedTicketId, setSelectedTicketId] = useState(null);
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+
   const [isLoadingTickets, setIsLoadingTickets] = useState(false);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [loadError, setLoadError] = useState(null);
   const [isSubmittingMessage, setIsSubmittingMessage] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
+  const [stampAnimate, setStampAnimate] = useState(false);
+  const [newTicketIds, setNewTicketIds] = useState([]);
 
-  // Filter state: 'all' | 'fix_ready' | 'code_bug' | 'data_issue' | 'done'
-  const [filterStatus, setFilterStatus] = useState("all");
-
-  // New Ticket Simulation Modal
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [customSender, setCustomSender] = useState("Client Operations");
-  const [customEmail, setCustomEmail] = useState("ops@bigmart-retail.com");
-  const [customChannel, setCustomChannel] = useState("slack");
-  const [customMessage, setCustomMessage] = useState("");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [notificationBanner, setNotificationBanner] = useState(null);
 
-  useEffect(() => {
-    fetchTickets();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Simulate Client modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [customSender, setCustomSender] = useState("Client Operator");
+  const [customEmail, setCustomEmail] = useState("client@company.com");
+  const [customChannel, setCustomChannel] = useState("simulated");
+  const [customMessage, setCustomMessage] = useState("");
 
-  useEffect(() => {
-    if (selectedTicketId) {
-      fetchTicketDetail(selectedTicketId);
-    }
-  }, [selectedTicketId]);
+  const knownIdsRef = useRef(new Set());
 
-  const fetchTickets = async () => {
-    setIsLoadingTickets(true);
+  const fetchChannels = async () => {
     try {
-      const res = await fetch(`${API_BASE}/support/tickets`);
+      const res = await fetch(`${API_BASE}/support/channels`);
       if (res.ok) {
         const data = await res.json();
-        const list = data.tickets || [];
-        setTickets(list);
-        onUpdatePendingCount(list.filter((t) => t.status === "fix_ready").length);
-        if (list.length > 0 && !selectedTicketId) {
-          setSelectedTicketId(list[0].id);
+        setChannels(data.channels || []);
+      }
+    } catch {
+      // Channels remain empty if backend is down
+    }
+  };
+
+  const fetchTickets = async (silent = false) => {
+    if (!silent) setIsLoadingTickets(true);
+    setLoadError(null);
+    try {
+      const res = await fetch(`${API_BASE}/support/tickets`);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status} while loading tickets`);
+      }
+      const data = await res.json();
+      const list = data.tickets || [];
+
+      if (knownIdsRef.current.size > 0) {
+        const arrived = list
+          .filter((t) => !knownIdsRef.current.has(t.id))
+          .map((t) => t.id);
+        if (arrived.length > 0) {
+          setNewTicketIds(arrived);
+          setTimeout(() => setNewTicketIds([]), 400);
         }
       }
+      list.forEach((t) => knownIdsRef.current.add(t.id));
+
+      setTickets(list);
+      onUpdatePendingCount(
+        list.filter((t) => t.status === "fix_ready" && !t.is_flagged).length
+      );
     } catch (e) {
-      console.warn("Could not fetch support tickets:", e);
+      if (!silent) setLoadError(e.message || "Could not load support tickets.");
     } finally {
       setIsLoadingTickets(false);
     }
@@ -118,10 +96,98 @@ export default function SupportDeskView({ onUpdatePendingCount = () => {} }) {
         const data = await res.json();
         setSelectedTicket(data);
       }
-    } catch (e) {
-      console.warn(`Could not fetch ticket detail for ${ticketId}:`, e);
+    } catch {
+      // keep existing state
     } finally {
       setIsLoadingDetail(false);
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/support/tickets`);
+        if (!cancelled && res.ok) {
+          const data = await res.json();
+          const list = data.tickets || [];
+          list.forEach((t) => knownIdsRef.current.add(t.id));
+          setTickets(list);
+          onUpdatePendingCount(
+            list.filter((t) => t.status === "fix_ready" && !t.is_flagged).length
+          );
+        }
+      } catch (e) {
+        if (!cancelled) setLoadError(e.message || "Could not load support tickets.");
+      }
+    })();
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/support/channels`);
+        if (!cancelled && res.ok) {
+          const data = await res.json();
+          setChannels(data.channels || []);
+        }
+      } catch {
+        // ignore
+      }
+    })();
+
+    const timer = setInterval(() => {
+      fetchTickets(true);
+      fetchChannels();
+    }, 8000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!externalTicketId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/support/tickets/${externalTicketId}`);
+        if (!cancelled && res.ok) {
+          const data = await res.json();
+          setSelectedTicketId(externalTicketId);
+          setSelectedTicket(data);
+          setIsSheetOpen(true);
+          setStampAnimate(false);
+        }
+      } finally {
+        if (!cancelled) onClearExternalTicket();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalTicketId]);
+
+  const handleSelectTicket = (ticketId) => {
+    setSelectedTicketId(ticketId);
+    setStampAnimate(false);
+    setIsSheetOpen(true);
+    fetchTicketDetail(ticketId);
+  };
+
+  const handleToggleChannel = async (channelId, enabled) => {
+    setTogglingChannelId(channelId);
+    try {
+      const res = await fetch(`${API_BASE}/support/channels/${channelId}/toggle`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setChannels(data.channels || []);
+      }
+    } finally {
+      setTogglingChannelId(null);
     }
   };
 
@@ -132,26 +198,29 @@ export default function SupportDeskView({ onUpdatePendingCount = () => {} }) {
       const res = await fetch(`${API_BASE}/support/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(msgPayload)
+        body: JSON.stringify(msgPayload),
       });
       if (!res.ok) {
         const errJson = await res.json().catch(() => null);
-        throw new Error(errJson?.detail || `HTTP Error ${res.status}`);
+        throw new Error(errJson?.detail || `HTTP ${res.status}`);
       }
       const newTicket = await res.json();
-      setNotificationBanner({
-        type: "success",
-        text: `Ticket #${newTicket.id} triaged and investigated by agent.`
-      });
       setIsModalOpen(false);
       setCustomMessage("");
-      await fetchTickets();
+      setNewTicketIds([newTicket.id]);
+      setTimeout(() => setNewTicketIds([]), 400);
+      await fetchTickets(true);
       setSelectedTicketId(newTicket.id);
       setSelectedTicket(newTicket);
+      setIsSheetOpen(true);
+      setNotificationBanner({
+        type: "success",
+        text: `Strip #${newTicket.id} logged and triaged.`,
+      });
     } catch (err) {
       setNotificationBanner({
         type: "error",
-        text: `Failed to dispatch message: ${err.message}`
+        text: `Dispatch failed: ${err.message}`,
       });
     } finally {
       setIsSubmittingMessage(false);
@@ -165,23 +234,24 @@ export default function SupportDeskView({ onUpdatePendingCount = () => {} }) {
       const res = await fetch(`${API_BASE}/support/tickets/${ticketId}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ operator_name: "Senior Operations Admin" })
+        body: JSON.stringify({ operator_name: "Operations Admin" }),
       });
       if (!res.ok) {
         const errJson = await res.json().catch(() => null);
-        throw new Error(errJson?.detail || `HTTP Error ${res.status}`);
+        throw new Error(errJson?.detail || `HTTP ${res.status}`);
       }
       const data = await res.json();
+      setStampAnimate(true);
       setSelectedTicket(data.ticket);
       setNotificationBanner({
         type: "success",
-        text: `Remediation for ticket #${ticketId} approved and applied to production!`
+        text: `Ticket #${ticketId} approved and applied.`,
       });
-      await fetchTickets();
+      await fetchTickets(true);
     } catch (err) {
       setNotificationBanner({
         type: "error",
-        text: `Approval failed: ${err.message}`
+        text: `Approval failed: ${err.message}`,
       });
     } finally {
       setIsApproving(false);
@@ -196,287 +266,294 @@ export default function SupportDeskView({ onUpdatePendingCount = () => {} }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          reason: reason || "Rejected by administrator",
-          operator_name: "Senior Operations Admin"
-        })
+          reason: reason || "Rejected by operator",
+          operator_name: "Operations Admin",
+        }),
       });
       if (!res.ok) {
         const errJson = await res.json().catch(() => null);
-        throw new Error(errJson?.detail || `HTTP Error ${res.status}`);
+        throw new Error(errJson?.detail || `HTTP ${res.status}`);
       }
       const data = await res.json();
+      setStampAnimate(true);
       setSelectedTicket(data.ticket);
       setNotificationBanner({
         type: "success",
-        text: `Ticket #${ticketId} marked as rejected.`
+        text: `Ticket #${ticketId} marked rejected.`,
       });
-      await fetchTickets();
+      await fetchTickets(true);
     } catch (err) {
       setNotificationBanner({
         type: "error",
-        text: `Rejection failed: ${err.message}`
+        text: `Rejection failed: ${err.message}`,
       });
     } finally {
       setIsRejecting(false);
     }
   };
 
-  const pendingCount = tickets.filter((t) => t.status === "fix_ready").length;
+  const pendingCount = tickets.filter(
+    (t) => t.status === "fix_ready" && !t.is_flagged
+  ).length;
+  const appliedCount = tickets.filter(
+    (t) => t.status === "done" || t.status === "approved"
+  ).length;
+  const fixRate =
+    tickets.length > 0 ? `${Math.round((appliedCount / tickets.length) * 100)}%` : "—";
 
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-6 pb-24 animate-fade-up">
-      {/* Telemetry Control Subheader & Real-time Metrics Deck */}
-      <section className="w-full bg-surface-low p-5 rounded-xl border border-border flex flex-col gap-4">
-        {/* Top Micro-Nav & System State */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 font-mono text-label-telemetry text-muted tracking-wider min-w-0">
-            <span className="text-primary font-bold">Business Assistant</span>
-            <span>/</span>
-            <span className="text-accent-cyan font-bold">Support Desk</span>
-            <span className="font-mono text-primary px-2 py-0.5 rounded bg-surface-container border border-border text-[11px] font-bold">
-              #{selectedTicketId || "QUEUE"}
-            </span>
-            <span className="hidden md:inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface-container text-accent-cyan text-[11px] font-bold">
-              <Terminal className="w-3.5 h-3.5 stroke-[2]" />
-              AUTONOMOUS TRIAGE ENGINE
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 px-2.5 py-1 rounded bg-surface-container border border-accent-lime/40">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-lime opacity-80" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-accent-lime" />
-              </span>
-              <span className="font-mono text-[11px] text-accent-lime uppercase font-bold tracking-wider">
-                ACTIVE TRIAGE GRAPH
-              </span>
+    <div className="w-full max-w-6xl mx-auto space-y-4 pb-16">
+      {/* Control Header & Fixed Telemetry Strip */}
+      <section className="border border-grid rounded-xs bg-raised p-4 paper-stack space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-grid">
+          <div>
+            <div className="font-mono text-[10.5px] font-bold uppercase tracking-wider text-muted">
+              Flight-Strip Traffic Board
             </div>
-
-            <button
-              onClick={fetchTickets}
-              className="p-1.5 rounded hover:bg-surface-container text-muted hover:text-primary transition-colors border border-border"
-              title="Refresh tickets"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingTickets ? "animate-spin" : ""}`} />
-            </button>
+            <h1 className="font-serif text-2xl font-semibold text-ink">
+              Support Desk &amp; Remediation
+            </h1>
           </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              fetchTickets();
+              fetchChannels();
+            }}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xs border border-grid bg-paper text-ink hover:border-ink font-mono text-xs font-semibold cursor-pointer"
+          >
+            <RefreshCw
+              className={`w-3.5 h-3.5 ${isLoadingTickets ? "animate-spin" : ""}`}
+              strokeWidth={1.6}
+            />
+            <span>Refresh</span>
+          </button>
         </div>
 
-        {/* 4 KPI Strips Grid (Strictly Live Data) */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-          <div className="bg-surface p-4 rounded-xl border border-border flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-label-telemetry text-muted uppercase tracking-wider font-bold">
-                Total Backlog
-              </span>
-              <span className="w-2 h-2 rounded-full bg-accent-cyan" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="p-2.5 rounded-xs border border-grid bg-paper">
+            <div className="font-mono text-[10px] uppercase tracking-wider text-muted font-bold">
+              Active Strips
             </div>
-            <div className="flex items-baseline gap-2 mt-2">
-              <span className="font-mono text-metric-display text-primary font-bold">
-                {tickets.length}
-              </span>
-              <span className="px-2 py-0.5 rounded font-mono text-[10px] bg-accent-cyan/15 text-accent-cyan font-bold">
-                ACTIVE
-              </span>
+            <div className="font-mono text-xl font-bold text-ink tabular-mono mt-1">
+              {tickets.length}
             </div>
           </div>
 
-          <div className="bg-surface p-4 rounded-xl border border-border flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-label-telemetry text-muted uppercase tracking-wider font-bold">
-                Autonomous Fix Rate
-              </span>
-              <span className="w-2 h-2 rounded-full bg-accent-lime" />
+          <div className="p-2.5 rounded-xs border border-grid bg-paper">
+            <div className="font-mono text-[10px] uppercase tracking-wider text-muted font-bold">
+              Needs Review
             </div>
-            <div className="flex items-baseline gap-2 mt-2">
-              <span className="font-mono text-metric-display text-primary font-bold">
-                {tickets.length > 0
-                  ? `${Math.round(
-                      (tickets.filter((t) => t.status === "done" || t.status === "approved").length /
-                        tickets.length) *
-                        100
-                    )}%`
-                  : "0%"}
-              </span>
-              <span className="font-mono text-[10px] text-accent-emerald font-bold">
-                {tickets.filter((t) => t.status === "done").length} APPLIED
-              </span>
+            <div className="font-mono text-xl font-bold text-seal-ink tabular-mono mt-1">
+              {pendingCount}
             </div>
           </div>
 
-          <div className="bg-surface p-4 rounded-xl border border-border flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-label-telemetry text-muted uppercase tracking-wider font-bold">
-                Sandbox Latency
-              </span>
-              <span className="w-2 h-2 rounded-full bg-accent-amber" />
+          <div className="p-2.5 rounded-xs border border-grid bg-paper">
+            <div className="font-mono text-[10px] uppercase tracking-wider text-muted font-bold">
+              Applied Rate
             </div>
-            <div className="flex items-baseline gap-2 mt-2">
-              <span className="font-mono text-metric-display text-primary font-bold">
-                {selectedTicket?.sandbox_diff?.latency ? `${selectedTicket.sandbox_diff.latency}s` : "0.8s"}
-              </span>
-              <span className="font-mono text-[10px] text-muted font-bold">ISOLATED DB</span>
+            <div className="font-mono text-xl font-bold text-sage-ink tabular-mono mt-1">
+              {fixRate}
             </div>
           </div>
 
-          <div className="bg-surface p-4 rounded-xl border border-border flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-label-telemetry text-muted uppercase tracking-wider font-bold">
-                Needs Approval
-              </span>
-              <span className="w-2 h-2 rounded-full bg-accent-lime" />
+          <div className="p-2.5 rounded-xs border border-grid bg-paper">
+            <div className="font-mono text-[10px] uppercase tracking-wider text-muted font-bold">
+              Sandbox Latency
             </div>
-            <div className="flex items-baseline gap-2 mt-2">
-              <span className="font-mono text-metric-display text-primary font-bold">
-                {pendingCount}
-              </span>
-              <span className="px-2 py-0.5 rounded font-mono text-[10px] bg-accent-lime/20 text-primary border border-accent-lime/40 font-bold">
-                HITL REQUIRED
-              </span>
+            <div className="font-mono text-xl font-bold text-ink tabular-mono mt-1">
+              {selectedTicket?.sandbox_diff?.latency
+                ? `${selectedTicket.sandbox_diff.latency}s`
+                : "—"}
             </div>
           </div>
         </div>
       </section>
 
-      {/* Notification Banner */}
+      {loadError && (
+        <ErrorState
+          title="Support Desk Unavailable"
+          message={loadError}
+          onRetry={() => fetchTickets()}
+        />
+      )}
+
       {notificationBanner && (
         <div
-          className={`p-3 rounded-lg border flex items-center justify-between font-body text-xs font-medium ${
+          role="status"
+          className={`px-3.5 py-2.5 rounded-xs border flex items-center justify-between gap-2 font-mono text-xs ${
             notificationBanner.type === "success"
-              ? "bg-accent-emerald/10 border-accent-emerald/30 text-accent-emerald"
-              : "bg-accent-crimson/10 border-accent-crimson/30 text-accent-crimson"
+              ? "border-sage bg-sage-tint text-sage-ink"
+              : "border-seal bg-seal-tint text-seal-ink"
           }`}
         >
-          <div className="flex items-center gap-2">
-            {notificationBanner.type === "success" ? (
-              <CheckCircle2 className="w-4 h-4 stroke-[2.2]" />
-            ) : (
-              <AlertCircle className="w-4 h-4 stroke-[2.2]" />
-            )}
-            <span>{notificationBanner.text}</span>
-          </div>
+          <span>{notificationBanner.text}</span>
           <button
+            type="button"
             onClick={() => setNotificationBanner(null)}
-            className="hover:underline font-mono text-[11px]"
+            className="underline font-bold cursor-pointer"
           >
             Dismiss
           </button>
         </div>
       )}
 
-      {/* Two-Pane Workspace: Left Backlog (col-span-4), Right Remediation Detail (col-span-8) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 rounded-xl border border-border overflow-hidden min-h-[750px] lg:h-[820px] bg-surface shadow-xs">
-        {/* Left Column: Ticket List */}
-        <div className="lg:col-span-4 h-full overflow-hidden border-b lg:border-b-0 lg:border-r border-border">
-          <TicketList
-            tickets={tickets}
-            selectedTicketId={selectedTicketId}
-            onSelectTicket={(id) => setSelectedTicketId(id)}
-            filterStatus={filterStatus}
-            onChangeFilter={(f) => setFilterStatus(f)}
-            onOpenNewTicketModal={() => setIsModalOpen(true)}
-          />
-        </div>
+      {/* Flight Strip Board */}
+      <StripBoard
+        tickets={tickets}
+        selectedTicketId={selectedTicketId}
+        newTicketIds={newTicketIds}
+        filterCategory={filterCategory}
+        onChangeCategory={setFilterCategory}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onSelectTicket={handleSelectTicket}
+        onOpenNewTicketModal={() => setIsModalOpen(true)}
+        isLoading={isLoadingTickets}
+      />
 
-        {/* Right Column: Ticket Detail */}
-        <div className="lg:col-span-8 h-full overflow-hidden">
-          <TicketDetail
-            ticket={selectedTicket}
-            isLoading={isLoadingDetail}
-            onApprove={(id) => handleApprove(id)}
-            onReject={(id, reason) => handleReject(id, reason)}
-            isApproving={isApproving}
-            isRejecting={isRejecting}
-          />
-        </div>
-      </div>
+      {/* Channels Panel */}
+      <ChannelStatus
+        channels={channels}
+        togglingChannelId={togglingChannelId}
+        onToggleChannel={handleToggleChannel}
+      />
 
-      {/* Simulate Client Ticket Modal */}
+      {/* Ticket Detail Sheet */}
+      <TicketDetail
+        key={selectedTicket?.id || "empty"}
+        ticket={selectedTicket}
+        isOpen={isSheetOpen}
+        isLoading={isLoadingDetail}
+        onClose={() => setIsSheetOpen(false)}
+        onApprove={handleApprove}
+        onReject={handleReject}
+        isApproving={isApproving}
+        isRejecting={isRejecting}
+        stampAnimate={stampAnimate}
+      />
+
+      {/* Simulate Client Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/45"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Simulate client problem report"
+          onClick={() => setIsModalOpen(false)}
+        >
           <div
-            onClick={() => setIsModalOpen(false)}
-            className="fixed inset-0 bg-black/60 backdrop-blur-xs"
-          />
-
-          <div className="relative w-full max-w-lg bg-surface border border-border rounded-xl shadow-2xl p-5 z-10 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-border">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-accent-lime" />
-                <h3 className="font-headline text-body-lg font-bold text-primary">
-                  Simulate Client Problem Report
-                </h3>
-              </div>
+            className="w-full max-w-lg rounded-xs border border-ink bg-raised paper-stack-strong p-5 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-2.5 border-b border-grid">
+              <h2 className="font-serif text-lg font-semibold text-ink">
+                Simulate Client Report
+              </h2>
               <button
+                type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 rounded text-muted hover:text-primary transition-colors"
+                className="p-1 rounded-xs border border-grid text-muted hover:text-ink cursor-pointer"
+                aria-label="Close modal"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4" strokeWidth={1.6} />
               </button>
             </div>
 
-            {/* Quick Presets */}
-            <div className="space-y-2">
-              <span className="font-mono text-label-telemetry uppercase text-muted font-bold">
-                Quick Incident Presets:
-              </span>
-              <div className="space-y-1.5">
-                {PRESET_CLIENT_MESSAGES.map((preset, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => {
-                      handleSendMessage({
-                        sender: preset.sender,
-                        sender_email: preset.email,
-                        channel: preset.channel,
-                        message: preset.message
-                      });
-                    }}
-                    className="w-full text-left p-2.5 rounded bg-surface-container hover:bg-surface-container-high border border-border text-xs flex items-center justify-between group transition-colors"
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label
+                    htmlFor="sim-sender"
+                    className="block font-mono text-[10px] font-bold uppercase tracking-wider text-muted mb-1"
                   >
-                    <div className="min-w-0 pr-2">
-                      <div className="font-bold text-primary text-[12px] group-hover:text-accent-cyan transition-colors">
-                        {preset.label}
-                      </div>
-                      <div className="font-mono text-[10px] text-muted truncate">
-                        {preset.message}
-                      </div>
-                    </div>
-                    <ArrowRight className="w-4 h-4 text-muted group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
-                  </button>
-                ))}
-              </div>
-            </div>
+                    Sender Name
+                  </label>
+                  <input
+                    id="sim-sender"
+                    type="text"
+                    value={customSender}
+                    onChange={(e) => setCustomSender(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-xs border border-grid bg-paper text-xs text-ink font-sans focus:outline-none"
+                  />
+                </div>
 
-            {/* Or custom message */}
-            <div className="space-y-2 pt-2 border-t border-border">
-              <span className="font-mono text-label-telemetry uppercase text-muted font-bold">
-                Or Write Custom Message:
-              </span>
-              <textarea
-                value={customMessage}
-                onChange={(e) => setCustomMessage(e.target.value)}
-                placeholder="Type client issue description..."
-                rows={3}
-                className="w-full bg-surface-container border border-border rounded-lg p-2.5 text-xs text-primary placeholder:text-muted focus:outline-none focus:border-accent-cyan font-sans"
-              />
+                <div>
+                  <label
+                    htmlFor="sim-channel"
+                    className="block font-mono text-[10px] font-bold uppercase tracking-wider text-muted mb-1"
+                  >
+                    Channel
+                  </label>
+                  <select
+                    id="sim-channel"
+                    value={customChannel}
+                    onChange={(e) => setCustomChannel(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-xs border border-grid bg-paper text-xs text-ink font-mono focus:outline-none"
+                  >
+                    <option value="simulated">Simulated</option>
+                    <option value="slack">Slack</option>
+                    <option value="email">Email</option>
+                    <option value="webhook">Webhook</option>
+                    <option value="teams">Microsoft Teams</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="sim-email"
+                  className="block font-mono text-[10px] font-bold uppercase tracking-wider text-muted mb-1"
+                >
+                  Sender Email
+                </label>
+                <input
+                  id="sim-email"
+                  type="email"
+                  value={customEmail}
+                  onChange={(e) => setCustomEmail(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-xs border border-grid bg-paper text-xs text-ink font-mono focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="sim-message"
+                  className="block font-mono text-[10px] font-bold uppercase tracking-wider text-muted mb-1"
+                >
+                  Problem Report
+                </label>
+                <textarea
+                  id="sim-message"
+                  rows={4}
+                  value={customMessage}
+                  onChange={(e) => setCustomMessage(e.target.value)}
+                  placeholder="Describe a data inconsistency, policy inquiry, or calculation defect..."
+                  className="w-full p-2.5 rounded-xs border border-grid bg-paper text-xs text-ink placeholder:text-muted font-sans focus:outline-none"
+                />
+              </div>
+
               <button
-                onClick={() => {
-                  if (!customMessage.trim()) return;
+                type="button"
+                disabled={isSubmittingMessage || !customMessage.trim()}
+                onClick={() =>
                   handleSendMessage({
+                    client_name: customSender,
                     sender: customSender,
+                    client_email: customEmail,
                     sender_email: customEmail,
                     channel: customChannel,
-                    message: customMessage.trim()
-                  });
-                }}
-                disabled={isSubmittingMessage || !customMessage.trim()}
-                className="w-full py-2 rounded-lg bg-accent-lime text-accent-lime-contrast font-headline text-xs font-bold hover:bg-accent-lime/90 disabled:opacity-40 transition-all flex items-center justify-center gap-2"
+                    message: customMessage.trim(),
+                  })
+                }
+                className="w-full py-2 rounded-xs border border-ink bg-ink text-paper font-mono text-xs font-bold uppercase tracking-wider hover:opacity-90 disabled:opacity-40 cursor-pointer inline-flex items-center justify-center gap-2"
               >
-                {isSubmittingMessage ? <RotateCw className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                <span>Dispatch to Autonomous Support Graph</span>
+                <Send className="w-3.5 h-3.5" strokeWidth={1.6} />
+                <span>
+                  {isSubmittingMessage ? "Triaging..." : "Dispatch to Support Desk"}
+                </span>
               </button>
             </div>
           </div>

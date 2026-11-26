@@ -1,374 +1,284 @@
 "use client";
 
 import React from "react";
+import { RefreshCw, Database } from "lucide-react";
 import QualityBars from "./QualityBars";
-import {
-  CheckCircle2,
-  RotateCw,
-  Database,
-  ShieldCheck,
-  AlertTriangle,
-  Zap,
-} from "lucide-react";
+import Stamp from "./Stamp";
+import Skeleton from "./Skeleton";
+import ErrorState from "./ErrorState";
+import { useCountUpOnce } from "../lib/useCountUp";
 
-export default function DataQualityView({ report, isLoading, onRefresh, systemHealth = null }) {
+export default function DataQualityView({
+  report,
+  isLoading = false,
+  error = null,
+  onRefresh = () => {},
+  systemHealth = null,
+}) {
+  const profile = report?.records_profile || {};
+  const columnsProfile = report?.columns_profile || [];
+  const rawRows = profile.raw_total_rows ?? 0;
+  const cleanedRows = profile.cleaned_total_rows ?? 0;
+  const dupsRemoved = profile.duplicate_rows_removed ?? 0;
+  const columnCount = profile.column_count ?? columnsProfile.length;
+
+  const animatedRaw = useCountUpOnce(rawRows, 500);
+  const animatedCleaned = useCountUpOnce(cleanedRows, 500);
+  const animatedDups = useCountUpOnce(dupsRemoved, 500);
+
   if (isLoading) {
     return (
-      <div className="p-16 text-center text-muted font-mono text-xs flex flex-col items-center justify-center">
-        <RotateCw className="w-7 h-7 animate-spin text-accent-lime mb-3" />
-        <span className="text-primary font-bold text-body-md">Running Distributed PySpark Quality Audit...</span>
-        <span className="text-muted text-[11px] mt-1">Inspecting PostgreSQL schema invariants &amp; pgvector embeddings</span>
+      <div className="w-full max-w-6xl mx-auto space-y-4 pb-16">
+        <div className="p-4 border border-grid rounded-xs bg-raised space-y-2">
+          <div className="font-mono text-xs uppercase tracking-wider text-muted font-bold">
+            Data Quality Audit
+          </div>
+          <div className="font-serif text-xl text-ink">
+            Loading PySpark quality report...
+          </div>
+        </div>
+        <Skeleton variant="table" rows={5} cols={4} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="w-full max-w-6xl mx-auto pb-16">
+        <ErrorState
+          title="Quality Report Unavailable"
+          message={error}
+          onRetry={onRefresh}
+        />
       </div>
     );
   }
 
   if (!report) {
     return (
-      <div className="p-8 border border-border bg-surface rounded-lg shadow-xs text-center text-muted font-sans text-xs space-y-3">
-        <Database className="w-8 h-8 stroke-[1.5] mx-auto text-muted mb-2" />
-        <div className="font-bold text-primary text-body-lg">No Data Quality Report Available</div>
-        <p className="max-w-md mx-auto text-muted leading-relaxed">
-          The PySpark cleaning pipeline has not yet written an audit summary to PostgreSQL. Run the setup script or click below to inspect health metrics.
-        </p>
-        {onRefresh && (
+      <div className="w-full max-w-6xl mx-auto pb-16">
+        <div className="border border-grid rounded-xs bg-raised p-8 text-center space-y-3 paper-stack">
+          <Database className="w-7 h-7 mx-auto text-muted" strokeWidth={1.5} />
+          <h2 className="font-serif text-xl font-semibold text-ink">
+            Run the pipeline to see a report
+          </h2>
+          <p className="text-xs text-muted max-w-md mx-auto leading-relaxed">
+            No PySpark data quality audit has been recorded in PostgreSQL yet. Upload a CSV dataset and run the pipeline to inspect before and after metrics.
+          </p>
           <button
+            type="button"
             onClick={onRefresh}
-            className="mt-3 px-4 py-2 rounded bg-accent-lime text-accent-lime-contrast font-mono text-xs font-bold"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xs border border-ink bg-ink text-paper font-mono text-xs font-bold uppercase tracking-wider cursor-pointer"
           >
-            Run Quality Checks
+            <RefreshCw className="w-3.5 h-3.5" strokeWidth={1.6} />
+            <span>Check Again</span>
           </button>
-        )}
+        </div>
       </div>
     );
   }
 
-  const profile = report.records_profile || {};
-  const columnsProfile = report.columns_profile || [];
-  const rawRows = profile.raw_total_rows ?? 0;
-  const cleanedRows = profile.cleaned_total_rows ?? 0;
-  const dupsRemoved = profile.duplicate_rows_removed ?? 0;
-  const columnCount = profile.column_count ?? (columnsProfile.length || 12);
-
-  // Compute total nulls dynamically across all discovered columns
   let totalNullsBefore = 0;
   let totalNullsAfter = 0;
   if (columnsProfile.length > 0) {
-    totalNullsBefore = columnsProfile.reduce((acc, c) => acc + (c.nulls_before || 0), 0);
-    totalNullsAfter = columnsProfile.reduce((acc, c) => acc + (c.nulls_after || 0), 0);
+    totalNullsBefore = columnsProfile.reduce((a, c) => a + (c.nulls_before || 0), 0);
+    totalNullsAfter = columnsProfile.reduce((a, c) => a + (c.nulls_after || 0), 0);
   } else {
     const nulls = report.null_imputation_summary || {};
-    totalNullsBefore = (nulls.Item_Weight_nulls_before ?? 0) + (nulls.Outlet_Size_nulls_before ?? 0);
-    totalNullsAfter = (nulls.Item_Weight_nulls_after ?? 0) + (nulls.Outlet_Size_nulls_after ?? 0);
+    totalNullsBefore = Object.keys(nulls)
+      .filter((k) => k.endsWith("_before"))
+      .reduce((a, k) => a + (nulls[k] || 0), 0);
+    totalNullsAfter = Object.keys(nulls)
+      .filter((k) => k.endsWith("_after"))
+      .reduce((a, k) => a + (nulls[k] || 0), 0);
   }
 
-  const nullResolutionPercent = totalNullsBefore > 0
-    ? Math.round(((totalNullsBefore - totalNullsAfter) / totalNullsBefore) * 100)
-    : 100;
+  const nullsImputed = Math.max(0, totalNullsBefore - totalNullsAfter);
+  const retentionPct =
+    rawRows > 0 ? Math.min(100, Math.round((cleanedRows / rawRows) * 100)) : 100;
+  const vectorChunks = systemHealth?.indexed_chunks ?? 0;
+  const reportId = report.report_id || "ETL-REPORT";
 
-  // Real computed Health Index
-  const healthScore = rawRows > 0
-    ? Math.min(100, Math.max(0, Math.round((cleanedRows / rawRows) * 100)))
-    : 100;
+  const plainSummary = `PySpark ingested ${rawRows.toLocaleString()} raw rows across ${columnCount} discovered columns, removed ${dupsRemoved.toLocaleString()} duplicate rows, and imputed ${nullsImputed.toLocaleString()} missing values, leaving ${cleanedRows.toLocaleString()} clean records ready in PostgreSQL.`;
 
-  const reportId = report.report_id || "ETL-LIVE";
-  const vectorChunksCount = systemHealth?.indexed_chunks ?? 21;
-
-  // Schema Invariant Rules derived strictly from real report
-  const checks = [
+  const issues = [
     {
-      id: "chk-01",
-      severity: "pass",
-      tableField: "sales.*",
-      rule: "Deduplication & Record Uniqueness",
-      scope: `${dupsRemoved} duplicate rows pruned (${cleanedRows.toLocaleString()} unique rows kept)`,
-      status: "PASS"
-    },
-    {
-      id: "chk-02",
-      severity: "pass",
-      tableField: "sales.nulls",
-      rule: "Missing Value Imputation Engine",
-      scope: `${totalNullsBefore - totalNullsAfter} missing values imputed across ${columnCount} columns`,
-      status: "PASS"
-    },
-    {
-      id: "chk-03",
-      severity: "pass",
-      tableField: "sales.schema",
-      rule: "Dynamic Schema Invariant Conformance",
-      scope: `${columnCount} typed columns verified (numeric & categorical)`,
-      status: "PASS"
-    },
-    {
-      id: "chk-04",
-      severity: "pass",
-      tableField: "docs.embeddings",
-      rule: "Vector Normalization & 768-Dim Invariant",
-      scope: `${vectorChunksCount} pgvector chunks indexed`,
-      status: "PASS"
-    },
-    {
-      id: "chk-05",
+      id: "dq-01",
       severity: dupsRemoved > 0 ? "warn" : "pass",
-      tableField: "raw.bigmart_sales",
-      rule: "Deduplication & Exact Row Fingerprinting",
-      scope: `${dupsRemoved} duplicate rows isolated & pruned`,
-      status: dupsRemoved > 0 ? "RESOLVED" : "PASS"
-    }
+      field: "sales.*",
+      rule: "Exact Row Deduplication",
+      detail: `${dupsRemoved.toLocaleString()} duplicate rows pruned; ${cleanedRows.toLocaleString()} unique rows kept.`,
+    },
+    {
+      id: "dq-02",
+      severity: nullsImputed > 0 ? "warn" : "pass",
+      field: "sales.nulls",
+      rule: "Null Value Imputation",
+      detail: `${totalNullsBefore.toLocaleString()} missing values before cleaning → ${totalNullsAfter.toLocaleString()} after.`,
+    },
+    {
+      id: "dq-03",
+      severity: "pass",
+      field: "sales.schema",
+      rule: "Schema Type Conformance",
+      detail: `${columnCount} columns profiled and typed in PostgreSQL.`,
+    },
+    {
+      id: "dq-04",
+      severity: "pass",
+      field: "document_embeddings",
+      rule: "pgvector Index Readiness",
+      detail: `${vectorChunks.toLocaleString()} vector chunks indexed for RAG retrieval.`,
+    },
   ];
 
-  return (
-    <div className="w-full max-w-7xl mx-auto space-y-6 pb-24 animate-fade-up">
-      {/* Top Header & Action Controls */}
-      <section className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 bg-surface-low rounded-xl border border-border">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="font-headline text-headline-lg text-primary font-bold tracking-tight">
-              Data Health &amp; Schema Telemetry
-            </h1>
-            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface-container font-mono text-label-telemetry text-accent-cyan font-bold border border-accent-cyan/30">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent-cyan" />
-              POSTGRESQL // PGVECTOR
-            </span>
-            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface-container font-mono text-label-telemetry text-accent-lime font-bold border border-accent-lime/40">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent-lime animate-pulse" />
-              REAL-TIME VALIDATION
-            </span>
-          </div>
-          <p className="font-body text-body-md text-muted max-w-3xl">
-            Automated integrity validation across PostgreSQL <span className="font-mono text-accent-cyan font-medium">sales</span> table &amp; pgvector high-dimensional embeddings via distributed Apache Spark.
-          </p>
-        </div>
+  columnsProfile
+    .filter((c) => (c.nulls_before || 0) > 0)
+    .forEach((col, i) => {
+      issues.push({
+        id: `col-${i}`,
+        severity: (col.nulls_after || 0) > 0 ? "warn" : "pass",
+        field: `sales.${col.name}`,
+        rule: `Column Null Check (${col.type || "typed"})`,
+        detail: `${(col.nulls_before || 0).toLocaleString()} missing before → ${(col.nulls_after || 0).toLocaleString()} after.`,
+      });
+    });
 
-        {/* Actions Bay */}
-        <div className="flex items-center gap-2 shrink-0">
+  return (
+    <div className="w-full max-w-6xl mx-auto space-y-5 pb-16">
+      {/* Plain-Language Summary Ledger Header */}
+      <section className="border border-grid rounded-xs bg-raised p-4 sm:p-5 paper-stack space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-grid">
+          <div className="space-y-0.5">
+            <div className="font-mono text-[10.5px] font-bold uppercase tracking-wider text-muted">
+              PySpark Quality Audit · #{reportId}
+            </div>
+            <h1 className="font-serif text-2xl font-semibold text-ink">
+              Data Quality Report
+            </h1>
+          </div>
+
           <button
-            onClick={onRefresh}
-            className="px-4 py-2 rounded-lg bg-accent-lime hover:bg-accent-lime/90 text-accent-lime-contrast font-headline text-[13px] font-bold flex items-center gap-2 shadow-xs transition-all active:scale-95"
             type="button"
+            onClick={onRefresh}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xs border border-ink bg-ink text-paper font-mono text-xs font-bold uppercase tracking-wider hover:opacity-90 cursor-pointer"
           >
-            <Zap className="w-4 h-4 fill-current" />
-            <span>RUN CHECKS</span>
-            <kbd className="px-1.5 py-0.5 bg-black/20 rounded font-mono text-[10px]">⌘R</kbd>
+            <RefreshCw className="w-3.5 h-3.5" strokeWidth={1.6} />
+            <span>Refresh</span>
           </button>
         </div>
-      </section>
 
-      {/* Telemetry Metrics Grid (High-Impact Triad) */}
-      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-4">
-        {/* Card 1: Comprehensive Integrity Score (Radial HUD) */}
-        <div className="xl:col-span-4 bg-surface-low rounded-xl p-5 border border-border flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-2 border-b border-border">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-accent-lime" />
-              <span className="font-mono text-label-telemetry text-muted uppercase tracking-widest font-bold">
-                Global Health Index
-              </span>
+        <p className="font-serif text-base text-ink leading-relaxed max-w-4xl">
+          {plainSummary}
+        </p>
+
+        {/* Big Mono Numbers */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+          <div className="p-3 rounded-xs border border-grid bg-paper">
+            <div className="font-mono text-[10px] uppercase tracking-wider text-muted font-bold">
+              Raw Records
             </div>
-            <span className="font-mono text-code-md text-accent-cyan font-bold">#{reportId}</span>
-          </div>
-
-          <div className="my-4 flex flex-col sm:flex-row items-center justify-center gap-6">
-            {/* SVG Radial Ring */}
-            <div className="relative w-32 h-32 flex items-center justify-center shrink-0">
-              <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 120 120">
-                <circle className="stroke-surface-container" cx="60" cy="60" fill="none" strokeWidth="8" />
-                <circle
-                  className="stroke-accent-cyan"
-                  cx="60"
-                  cy="60"
-                  fill="none"
-                  opacity="0.5"
-                  r="50"
-                  strokeDasharray="314"
-                  strokeDashoffset="180"
-                  strokeLinecap="round"
-                  strokeWidth="8"
-                />
-                <circle
-                  className="stroke-accent-lime transition-all duration-1000 ease-out"
-                  cx="60"
-                  cy="60"
-                  fill="none"
-                  r="50"
-                  strokeDasharray="314"
-                  strokeDashoffset={314 - (314 * healthScore) / 100}
-                  strokeLinecap="round"
-                  strokeWidth="9"
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="font-mono text-metric-display leading-none text-primary font-bold tracking-tight">
-                  {healthScore}<span className="text-accent-lime text-[18px]">%</span>
-                </span>
-                <span className="font-mono text-[9px] uppercase tracking-wider text-accent-cyan font-bold mt-1">
-                  OPTIMAL
-                </span>
-              </div>
-            </div>
-
-            {/* Telemetry Breakdown */}
-            <div className="space-y-1.5 w-full sm:w-auto">
-              <div className="flex justify-between items-center text-[11px] font-mono gap-4">
-                <span className="text-muted">Validated Rows</span>
-                <span className="text-primary font-bold">{cleanedRows.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between items-center text-[11px] font-mono gap-4">
-                <span className="text-muted">Duplicate Pruning</span>
-                <span className="text-accent-emerald font-bold">{dupsRemoved} rows</span>
-              </div>
-              <div className="flex justify-between items-center text-[11px] font-mono gap-4">
-                <span className="text-muted">Null Imputation</span>
-                <span className="text-accent-cyan font-bold">{nullResolutionPercent}% resolved</span>
-              </div>
-              <div className="flex justify-between items-center text-[11px] font-mono gap-4">
-                <span className="text-muted">Data Schema Status</span>
-                <span className="text-accent-emerald font-bold">VERIFIED</span>
-              </div>
+            <div className="font-mono text-2xl sm:text-3xl font-bold text-ink tabular-mono mt-1">
+              {animatedRaw.toLocaleString()}
             </div>
           </div>
 
-          <div className="pt-2.5 border-t border-border flex items-center justify-between text-muted font-mono text-label-telemetry">
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent-cyan" />
-              POSTGRESQL RESILIENCE
-            </span>
-            <span className="text-accent-cyan font-bold">ACTIVE</span>
-          </div>
-        </div>
-
-        {/* Card 2: Delta Convergence Bars */}
-        <div className="xl:col-span-5 bg-surface-low rounded-xl p-5 border border-border flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-2 border-b border-border">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-accent-cyan" />
-              <span className="font-mono text-label-telemetry text-muted uppercase tracking-widest font-bold">
-                Delta Convergence (Before vs After)
-              </span>
+          <div className="p-3 rounded-xs border border-grid bg-paper">
+            <div className="font-mono text-[10px] uppercase tracking-wider text-muted font-bold">
+              Cleaned Records
             </div>
-            <span className="px-2 py-0.5 rounded bg-surface-container text-accent-lime font-mono text-[10px] font-bold">
-              {nullResolutionPercent}% RESOLVED
-            </span>
-          </div>
-
-          <div className="space-y-3 my-2">
-            {columnsProfile.filter(c => (c.nulls_before || 0) > 0).slice(0, 2).map((col) => (
-              <QualityBars
-                key={col.name}
-                title={`${col.name} Null Values`}
-                labelBefore="Raw Missing"
-                valBefore={col.nulls_before}
-                labelAfter="Cleaned/Imputed"
-                valAfter={col.nulls_after}
-                deltaLabel={`${col.nulls_before > 0 ? Math.round(((col.nulls_before - col.nulls_after) / col.nulls_before) * 100) : 100}% Imputed`}
-              />
-            ))}
-            {columnsProfile.filter(c => (c.nulls_before || 0) > 0).length === 0 && (
-              <div className="py-4 text-center font-mono text-xs text-muted">
-                Zero missing values detected across {columnCount} discovered columns.
-              </div>
-            )}
-          </div>
-
-          <div className="pt-2.5 border-t border-border flex items-center justify-between text-muted font-mono text-label-telemetry">
-            <span>Discovered Columns Profile</span>
-            <span className="text-accent-emerald font-bold">{columnCount} Columns Fully Cleaned</span>
-          </div>
-        </div>
-
-        {/* Card 3: Spark Engine Profile */}
-        <div className="xl:col-span-3 bg-surface-low rounded-xl p-5 border border-border flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-2 border-b border-border">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-accent-amber" />
-              <span className="font-mono text-label-telemetry text-muted uppercase tracking-widest font-bold">
-                Engine Telemetry
-              </span>
-            </div>
-            <span className="font-mono text-[10px] text-muted font-bold">APACHE SPARK</span>
-          </div>
-
-          <div className="space-y-3 my-3">
-            <div className="p-3 rounded-lg bg-surface border border-border">
-              <div className="font-mono text-[10px] text-muted uppercase font-bold">Raw Dataset</div>
-              <div className="font-mono text-headline-sm font-bold text-primary mt-0.5">
-                {rawRows.toLocaleString()} <span className="text-xs font-normal text-muted">records</span>
-              </div>
-            </div>
-
-            <div className="p-3 rounded-lg bg-surface border border-border">
-              <div className="font-mono text-[10px] text-muted uppercase font-bold">Cleaned Database</div>
-              <div className="font-mono text-headline-sm font-bold text-accent-cyan mt-0.5">
-                {cleanedRows.toLocaleString()} <span className="text-xs font-normal text-muted">records</span>
-              </div>
-            </div>
-
-            <div className="p-3 rounded-lg bg-surface border border-border">
-              <div className="font-mono text-[10px] text-muted uppercase font-bold">Vector Knowledge Chunks</div>
-              <div className="font-mono text-headline-sm font-bold text-accent-amber mt-0.5">
-                {vectorChunksCount} <span className="text-xs font-normal text-muted">pgvector chunks</span>
-              </div>
+            <div className="font-mono text-2xl sm:text-3xl font-bold text-route-data-ink tabular-mono mt-1">
+              {animatedCleaned.toLocaleString()}
             </div>
           </div>
 
-          <div className="pt-2.5 border-t border-border text-center text-muted font-mono text-[10px]">
-            PostgreSQL &middot; pgvector
+          <div className="p-3 rounded-xs border border-grid bg-paper">
+            <div className="font-mono text-[10px] uppercase tracking-wider text-muted font-bold">
+              Duplicates Pruned
+            </div>
+            <div className="font-mono text-2xl sm:text-3xl font-bold text-amber-ink tabular-mono mt-1">
+              {animatedDups.toLocaleString()}
+            </div>
+          </div>
+
+          <div className="p-3 rounded-xs border border-grid bg-paper">
+            <div className="font-mono text-[10px] uppercase tracking-wider text-muted font-bold">
+              Retention Rate
+            </div>
+            <div className="font-mono text-2xl sm:text-3xl font-bold text-sage-ink tabular-mono mt-1">
+              {retentionPct}%
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Automated Schema & Invariant Validations Table */}
-      <section className="bg-surface-low rounded-xl border border-border overflow-hidden shadow-xs">
-        <div className="p-4 bg-surface-container border-b border-border flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-accent-emerald stroke-[2]" />
-            <span className="font-headline text-body-lg font-bold text-primary">
-              Automated Invariant Verification Table
-            </span>
-          </div>
-          <span className="font-mono text-label-telemetry text-muted uppercase font-semibold">
-            {checks.length} Checks Validated
+      {/* Before / After Ruled Bars */}
+      <section className="space-y-2.5">
+        <div className="font-mono text-[11px] font-bold uppercase tracking-wider text-muted">
+          Before / After Comparison
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <QualityBars
+            title="Total Null Values Across Dataset"
+            labelBefore="Before Cleaning"
+            valBefore={totalNullsBefore}
+            labelAfter="After Cleaning"
+            valAfter={totalNullsAfter}
+            deltaLabel={
+              totalNullsBefore > 0
+                ? `${Math.round((nullsImputed / totalNullsBefore) * 100)}% imputed`
+                : "0 nulls"
+            }
+          />
+          <QualityBars
+            title="Duplicate Rows Removed"
+            labelBefore="Raw Input Rows"
+            valBefore={rawRows}
+            labelAfter="Cleaned Unique Rows"
+            valAfter={cleanedRows}
+            deltaLabel={`${dupsRemoved.toLocaleString()} pruned`}
+          />
+        </div>
+      </section>
+
+      {/* Issue & Invariant Table */}
+      <section className="border border-grid rounded-xs bg-raised overflow-hidden paper-stack">
+        <div className="px-4 py-2.5 border-b border-grid bg-sunken flex items-center justify-between gap-2">
+          <span className="font-mono text-xs font-bold uppercase tracking-wider text-ink">
+            Audit Checks &amp; Column Findings
+          </span>
+          <span className="font-mono text-[11px] text-muted tabular-mono">
+            {issues.length} checks
           </span>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left font-mono text-code-md">
-            <thead className="bg-surface-lowest text-muted border-b border-border text-[10px] uppercase tracking-wider">
-              <tr>
-                <th className="py-3 px-4 w-28">SEVERITY</th>
-                <th className="py-3 px-4">TABLE / FIELD</th>
-                <th className="py-3 px-4">RULE VALIDATED</th>
-                <th className="py-3 px-4 hidden sm:table-cell">SAMPLE SCOPE</th>
-                <th className="py-3 px-4 text-right">STATUS</th>
+          <table className="w-full text-left border-collapse font-mono text-xs">
+            <thead>
+              <tr className="border-b border-grid bg-sunken/60 text-muted text-[10.5px] uppercase tracking-wider">
+                <th className="px-4 py-2 w-28">Severity</th>
+                <th className="px-4 py-2">Target</th>
+                <th className="px-4 py-2">Check</th>
+                <th className="px-4 py-2">Outcome</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
-              {checks.map((chk) => (
-                <tr key={chk.id} className="hover:bg-surface transition-colors">
-                  <td className="py-3 px-4 whitespace-nowrap">
-                    {chk.severity === "pass" ? (
-                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-accent-emerald/10 text-accent-emerald text-[10px] font-bold">
-                        <CheckCircle2 className="w-3 h-3 stroke-[2.5]" />
-                        PASS
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-accent-amber/15 text-accent-amber text-[10px] font-bold">
-                        <AlertTriangle className="w-3 h-3 stroke-[2.5]" />
-                        RESOLVED
-                      </span>
-                    )}
+            <tbody className="divide-y divide-grid">
+              {issues.map((item) => (
+                <tr key={item.id} className="hover:bg-paper/60 transition-colors">
+                  <td className="px-4 py-2.5 whitespace-nowrap">
+                    <Stamp
+                      variant={item.severity === "pass" ? "pass" : "warn"}
+                      size="sm"
+                    />
                   </td>
-                  <td className="py-3 px-4 font-semibold text-accent-cyan">
-                    {chk.tableField}
+                  <td className="px-4 py-2.5 font-semibold text-route-data-ink whitespace-nowrap">
+                    {item.field}
                   </td>
-                  <td className="py-3 px-4 text-primary font-sans text-body-sm">
-                    {chk.rule}
+                  <td className="px-4 py-2.5 font-sans text-xs font-medium text-ink">
+                    {item.rule}
                   </td>
-                  <td className="py-3 px-4 hidden sm:table-cell text-muted text-xs">
-                    {chk.scope}
-                  </td>
-                  <td className="py-3 px-4 text-right font-bold text-accent-emerald">
-                    {chk.status}
+                  <td className="px-4 py-2.5 font-sans text-xs text-muted">
+                    {item.detail}
                   </td>
                 </tr>
               ))}

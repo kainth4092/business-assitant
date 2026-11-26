@@ -48,7 +48,7 @@ You are provided with:
 Instructions:
 - Provide a clear, professional, direct answer.
 - When presenting data, format key metrics neatly (e.g. bullet points or tables with currency formatting).
-- When citing documents, explicitly mention the source document name (e.g., [return_policy.md], [faq.md], [promotion_policy.md]).
+- When citing documents, explicitly mention the source document name (e.g., [filename.md#Section]).
 - If both data and policies were requested, synthesize them cohesively.
 - Be grounded strictly in the provided tool outputs. Do not extrapolate or fabricate facts.
 """

@@ -56,10 +56,10 @@ def persist_ticket_update(state: SupportState):
             state.get("status", "new"),
             state.get("classification"),
             state.get("confidence", 0.0),
-            json.dumps(state.get("investigation", {})),
-            json.dumps(state.get("proposed_fix", {})),
-            json.dumps(state.get("sandbox_diff", {})),
-            json.dumps(state.get("test_results", {})),
+            json.dumps(state.get("investigation", {}), default=str),
+            json.dumps(state.get("proposed_fix", {}), default=str),
+            json.dumps(state.get("sandbox_diff", {}), default=str),
+            json.dumps(state.get("test_results", {}), default=str),
             state.get("approval_token"),
             state.get("reply_message"),
             state.get("ticket_id")
@@ -148,12 +148,13 @@ def investigate_node(state: SupportState) -> Dict[str, Any]:
     if classification == "data_issue":
         dq_res = run_data_quality_checks("sales")
         findings = dq_res.get("findings", {})
+        inconsistent = findings.get("inconsistent_labels") or findings.get("inconsistent_fat_labels") or {}
         investigation = {
-            "root_cause": "Inconsistent fat content labels detected in sales table.",
-            "problematic_labels": findings.get("inconsistent_fat_labels", {}).get("problematic_labels", []),
-            "label_distribution": findings.get("inconsistent_fat_labels", {}).get("full_distribution", {}),
+            "root_cause": findings.get("root_cause", "Inconsistent categorical labels or formatting detected in sales table."),
+            "problematic_labels": inconsistent.get("problematic_labels", []),
+            "label_distribution": inconsistent.get("full_distribution", {}),
             "null_values": findings.get("null_values", {}),
-            "recommendation": "Standardize 'LF'/'low fat' to 'Low Fat', and 'reg' to 'Regular'."
+            "recommendation": findings.get("recommendation", "Standardize formatting and whitespace across affected columns.")
         }
 
     elif classification == "code_bug":
@@ -209,21 +210,27 @@ def propose_fix_node(state: SupportState) -> Dict[str, Any]:
     proposed_fix = {}
 
     if classification == "data_issue":
-        sql_patch = """
+        target_col = state.get("target_column")
+        if not target_col:
+            try:
+                from mcp_server.tools import get_schema_metadata
+                meta = get_schema_metadata()
+                cats = meta.get("categorical_columns", [])
+                target_col = cats[0] if cats else "category"
+            except Exception:
+                target_col = "category"
+
+        sql_patch = f"""
 UPDATE sales
-SET item_fat_content = CASE 
-    WHEN item_fat_content IN ('LF', 'low fat', 'Low Fat') THEN 'Low Fat'
-    WHEN item_fat_content IN ('reg', 'Regular') THEN 'Regular'
-    ELSE item_fat_content
-END
-WHERE item_fat_content IN ('LF', 'low fat', 'reg');
+SET "{target_col}" = TRIM(UPPER("{target_col}"))
+WHERE "{target_col}" IS NOT NULL AND "{target_col}" != TRIM(UPPER("{target_col}"));
         """.strip()
 
         proposed_fix = {
             "fix_type": "data_issue",
             "target": "sales",
             "sql_patch": sql_patch,
-            "description": "Standardize all legacy abbreviation labels ('LF', 'low fat', 'reg') into canonical 'Low Fat' and 'Regular' classes."
+            "description": f"Standardize text formatting and whitespace trimming across column '{target_col}'."
         }
 
     elif classification == "code_bug":
@@ -435,12 +442,23 @@ def notify_node(state: SupportState) -> Dict[str, Any]:
 
     reply_message = ""
     if classification == "data_issue":
-        reply_message = f"Hello {client_name}, thank you for reporting the category discrepancy. Our automated diagnostics identified inconsistent labels ('LF', 'low fat', 'reg') in the sales reporting table. An operator approved our standardization patch, and all records have now been consolidated into 'Low Fat' and 'Regular'. All reports are synchronized."
+        fix_desc = state.get("proposed_fix", {}).get("description", "the proposed data standardization patch")
+        rows_fixed = state.get("applied_result", {}).get("rows_affected")
+        rows_note = f" ({rows_fixed} row(s) updated)" if rows_fixed is not None else ""
+        reply_message = (
+            f"Hello {client_name}, thank you for reporting the data discrepancy. "
+            f"Our diagnostics completed {fix_desc} after sandbox verification and operator approval{rows_note}. "
+            f"The production dataset is now updated."
+        )
     elif classification == "code_bug":
-        reply_message = f"Hello {client_name}, thank you for your bug report. We diagnosed the promotional discount calculation logic in demo_target/discount_calculator.py. The calculation formula defect (addition instead of subtraction) has been patched and verified against our automated test suite. A draft pull request has been approved and applied."
+        fix_desc = state.get("proposed_fix", {}).get("description", "code defect patch")
+        reply_message = (
+            f"Hello {client_name}, thank you for your bug report. "
+            f"We verified and applied the approved fix ({fix_desc})."
+        )
     elif classification == "question":
-        top_excerpt = state.get("investigation", {}).get("top_excerpt", "Per our standard policy guidelines, items in original condition may be returned within the designated policy window.")
-        reply_message = f"Hello {client_name}, here is the information from our store policy documentation:\n\n{top_excerpt}"
+        top_excerpt = state.get("investigation", {}).get("top_excerpt", "No matching documentation was found in the indexed knowledge base.")
+        reply_message = f"Hello {client_name}, here is the relevant information from your indexed documents:\n\n{top_excerpt}"
     else:
         reply_message = f"Hello {client_name}, your request has been logged and assigned to our product development backlog."
 

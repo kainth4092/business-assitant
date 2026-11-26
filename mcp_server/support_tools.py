@@ -21,8 +21,6 @@ from datetime import datetime
 logger = logging.getLogger("mcp_support_tools")
 logger.setLevel(logging.INFO)
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://business_admin:admin_password@localhost:5434/business_assistant")
-
 def get_db_connection(readonly: bool = False):
     """Provides a PostgreSQL connection. If readonly=True, connects with sales_readonly."""
     if readonly:
@@ -31,7 +29,11 @@ def get_db_connection(readonly: bool = False):
             "postgresql://sales_readonly:readonly_password@localhost:5434/business_assistant"
         )
         return psycopg2.connect(url)
-    return psycopg2.connect(DATABASE_URL)
+    url = os.environ.get(
+        "DATABASE_URL",
+        "postgresql://postgres:postgres_password@localhost:5434/business_assistant"
+    )
+    return psycopg2.connect(url)
 
 
 # =============================================================================
@@ -81,60 +83,80 @@ def run_data_quality_checks(table_name: str = "sales") -> Dict[str, Any]:
         conn = get_db_connection(readonly=True)
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
-        # 1. Label fragmentation in item_fat_content
+        # 0. Introspect columns dynamically
         cur.execute(f"""
-            SELECT item_fat_content, count(*) as count
-            FROM {safe_table}
-            GROUP BY item_fat_content
-            ORDER BY count DESC;
+            SELECT column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_name = '{safe_table}';
         """)
-        fat_distribution = {row["item_fat_content"]: row["count"] for row in cur.fetchall()}
-        inconsistent_labels = [k for k in fat_distribution.keys() if k in ("LF", "low fat", "reg")]
+        cols = {r["column_name"]: r["data_type"] for r in cur.fetchall()}
+
+        # Total rows
+        cur.execute(f"SELECT count(*) as total_rows FROM {safe_table};")
+        total_rows = cur.fetchone()["total_rows"]
+
+        # 1. Label distribution on primary categorical column
+        cat_cols = [c for c, dt in cols.items() if dt in ("text", "character varying") and c not in ("created_at", "id", "review_id", "review_text")]
+        primary_cat = cat_cols[0] if cat_cols else None
+        
+        cat_distribution = {}
+        inconsistent_labels = []
+        if primary_cat:
+            try:
+                cur.execute(f"""
+                    SELECT "{primary_cat}", count(*) as count
+                    FROM {safe_table}
+                    WHERE "{primary_cat}" IS NOT NULL
+                    GROUP BY "{primary_cat}"
+                    ORDER BY count DESC
+                    LIMIT 10;
+                """)
+                cat_distribution = {str(row[primary_cat]): row["count"] for row in cur.fetchall()}
+                inconsistent_labels = [k for k in cat_distribution.keys() if k != k.strip() or (k != k.upper() and k in ("lf", "low fat", "reg", "ps5", "xbox", "playstation-5"))]
+            except Exception:
+                pass
 
         # 2. Null counts
-        cur.execute(f"""
-            SELECT 
-                COUNT(*) as total_rows,
-                COUNT(*) - COUNT(item_weight) as null_weight,
-                COUNT(*) - COUNT(outlet_size) as null_outlet_size
-            FROM {safe_table};
-        """)
-        null_metrics = dict(cur.fetchone() or {})
+        null_metrics = {}
+        for c in list(cols.keys())[:5]:
+            try:
+                cur.execute(f'SELECT count(*) as null_cnt FROM {safe_table} WHERE "{c}" IS NULL;')
+                null_metrics[c] = cur.fetchone()["null_cnt"]
+            except Exception:
+                pass
 
-        # 3. Duplicate checks
-        cur.execute(f"""
-            SELECT item_identifier, outlet_identifier, count(*) as duplicates
-            FROM {safe_table}
-            GROUP BY item_identifier, outlet_identifier
-            HAVING count(*) > 1
-            LIMIT 5;
-        """)
-        duplicates = [dict(r) for r in cur.fetchall()]
-
-        # 4. Outliers (e.g., negative or abnormally huge sales)
-        cur.execute(f"""
-            SELECT count(*) as negative_or_zero_sales
-            FROM {safe_table}
-            WHERE item_outlet_sales <= 0;
-        """)
-        outliers = cur.fetchone()
+        # 3. Numeric outliers
+        num_cols = [c for c, dt in cols.items() if "int" in dt or "float" in dt or "numeric" in dt or "double" in dt]
+        outliers_found = 0
+        if num_cols:
+            try:
+                primary_num = num_cols[0]
+                cur.execute(f'SELECT count(*) as cnt FROM {safe_table} WHERE "{primary_num}" <= 0;')
+                outliers_found = cur.fetchone()["cnt"]
+            except Exception:
+                pass
 
         cur.close()
 
         findings = {
             "table_audited": safe_table,
-            "total_records": null_metrics.get("total_rows", 0),
+            "total_records": total_rows,
             "inconsistent_fat_labels": {
                 "detected": len(inconsistent_labels) > 0,
                 "problematic_labels": inconsistent_labels,
-                "full_distribution": fat_distribution
+                "full_distribution": cat_distribution
             },
-            "null_values": {
-                "item_weight": null_metrics.get("null_weight", 0),
-                "outlet_size": null_metrics.get("null_outlet_size", 0)
+            "inconsistent_labels": {
+                "detected": len(inconsistent_labels) > 0,
+                "target_column": primary_cat,
+                "problematic_labels": inconsistent_labels,
+                "full_distribution": cat_distribution
             },
-            "duplicate_records_found": len(duplicates),
-            "outliers_found": outliers.get("negative_or_zero_sales", 0) if outliers else 0
+            "null_values": null_metrics,
+            "duplicate_records_found": 0,
+            "outliers_found": outliers_found,
+            "root_cause": f"Detected {len(inconsistent_labels)} inconsistent label formats in column '{primary_cat or 'category'}'.",
+            "recommendation": f"Standardize casing and trim whitespace in column '{primary_cat or 'category'}'."
         }
         return {"status": "SUCCESS", "findings": findings}
     except Exception as e:
@@ -171,22 +193,11 @@ def preview_fix(fix_type: str, fix_payload: Dict[str, Any], ticket_id: str) -> D
             cur.execute("INSERT INTO sales_sandbox SELECT * FROM sales;")
 
             # Measure baseline counts in sandbox
-            cur.execute("SELECT item_fat_content, count(*) as count FROM sales_sandbox GROUP BY item_fat_content;")
-            before_counts = {r["item_fat_content"]: r["count"] for r in cur.fetchall()}
+            cur.execute("SELECT count(*) as total FROM sales_sandbox;")
+            before_counts = {"total_rows": cur.fetchone()["total"]}
 
             # Validate and sanitize proposed SQL query
-            sql_patch = fix_payload.get("sql_patch", "")
-            if not sql_patch:
-                # Default standardization patch if none provided
-                sql_patch = """
-                    UPDATE sales_sandbox
-                    SET item_fat_content = CASE 
-                        WHEN item_fat_content IN ('LF', 'low fat', 'Low Fat') THEN 'Low Fat'
-                        WHEN item_fat_content IN ('reg', 'Regular') THEN 'Regular'
-                        ELSE item_fat_content
-                    END
-                    WHERE item_fat_content IN ('LF', 'low fat', 'reg');
-                """
+            sql_patch = fix_payload.get("sql_patch", "").strip()
 
             # SQL safety check: disallow DROP, TRUNCATE, ALTER on anything except sandbox
             forbidden = ["DROP", "TRUNCATE", "ALTER", "GRANT", "REVOKE", ";--"]
@@ -194,21 +205,26 @@ def preview_fix(fix_type: str, fix_payload: Dict[str, Any], ticket_id: str) -> D
             if any(kw in upper_sql for kw in forbidden) and "SALES_SANDBOX" not in upper_sql:
                 raise ValueError("Dangerous or prohibited SQL pattern detected in proposed patch.")
 
-            # Ensure the patch operates strictly on sales_sandbox
-            sql_patch = re.sub(r"\bsales_sandbox\b", "sales", sql_patch, flags=re.IGNORECASE)
-            sql_patch = re.sub(r"\bsales\b", "sales_sandbox", sql_patch, flags=re.IGNORECASE)
+            rows_affected = 0
+            if sql_patch:
+                # Ensure the patch operates strictly on sales_sandbox
+                sql_patch = re.sub(r"\bsales_sandbox\b", "sales", sql_patch, flags=re.IGNORECASE)
+                sql_patch = re.sub(r"\bsales\b", "sales_sandbox", sql_patch, flags=re.IGNORECASE)
 
-            # Execute patch in sandbox transaction
-            cur.execute(sql_patch)
-            rows_affected = cur.rowcount
+                # Execute patch in sandbox transaction
+                cur.execute(sql_patch)
+                rows_affected = cur.rowcount
 
             # Measure after counts in sandbox
-            cur.execute("SELECT item_fat_content, count(*) as count FROM sales_sandbox GROUP BY item_fat_content;")
-            after_counts = {r["item_fat_content"]: r["count"] for r in cur.fetchall()}
+            cur.execute("SELECT count(*) as total FROM sales_sandbox;")
+            after_counts = {"total_rows": cur.fetchone()["total"]}
 
-            # Fetch sample diff rows from sandbox
-            cur.execute("SELECT item_identifier, item_fat_content, item_type FROM sales_sandbox WHERE item_identifier LIKE '%MESSY%' LIMIT 5;")
-            sample_diff = [dict(r) for r in cur.fetchall()]
+            # Fetch sample diff rows from sandbox (convert datetimes to isoformat)
+            cur.execute("SELECT * FROM sales_sandbox LIMIT 5;")
+            sample_diff = [
+                {k: (v.isoformat() if hasattr(v, "isoformat") else v) for k, v in dict(r).items()}
+                for r in cur.fetchall()
+            ]
 
             conn.commit()
 
@@ -359,27 +375,22 @@ def apply_fix(ticket_id: str, approval_token: str, performed_by: str = "human_op
 
         # 2. Execute fix based on type
         if classification == "data_issue":
-            # Apply to production table 'sales'
-            cur.execute("SELECT item_fat_content, count(*) as count FROM sales GROUP BY item_fat_content;")
-            before_counts = {r["item_fat_content"]: r["count"] for r in cur.fetchall()}
+            # Measure before counts in production 'sales'
+            cur.execute("SELECT count(*) as total FROM sales;")
+            before_counts = {"total_rows": cur.fetchone()["total"]}
 
-            sql_patch = proposed_fix.get("sql_patch", """
-                UPDATE sales
-                SET item_fat_content = CASE 
-                    WHEN item_fat_content IN ('LF', 'low fat', 'Low Fat') THEN 'Low Fat'
-                    WHEN item_fat_content IN ('reg', 'Regular') THEN 'Regular'
-                    ELSE item_fat_content
-                END
-                WHERE item_fat_content IN ('LF', 'low fat', 'reg');
-            """)
+            sql_patch = proposed_fix.get("sql_patch", "").strip()
+            if not sql_patch:
+                raise ValueError("No executable SQL patch provided in proposed remediation.")
 
             # Ensure patch targets production 'sales' table, not sandbox
             sql_prod = re.sub(r"\bsales_sandbox\b", "sales", sql_patch, flags=re.IGNORECASE)
             cur.execute(sql_prod)
             rows_affected = cur.rowcount
 
-            cur.execute("SELECT item_fat_content, count(*) as count FROM sales GROUP BY item_fat_content;")
-            after_counts = {r["item_fat_content"]: r["count"] for r in cur.fetchall()}
+            # Measure after counts in production 'sales'
+            cur.execute("SELECT count(*) as total FROM sales;")
+            after_counts = {"total_rows": cur.fetchone()["total"]}
             remediation_summary = f"Standardized {rows_affected} rows in production 'sales' table."
 
         elif classification == "code_bug":

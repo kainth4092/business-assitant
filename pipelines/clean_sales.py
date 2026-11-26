@@ -249,10 +249,12 @@ def run_sales_pipeline(
             "categorical_column_count": len(string_cols),
         },
         "null_imputation_summary": {
-            "item_weight_nulls_before": null_counts_before.get("item_weight", 0),
-            "item_weight_nulls_after": null_counts_after.get("item_weight", 0),
-            "outlet_size_nulls_before": null_counts_before.get("outlet_size", 0),
-            "outlet_size_nulls_after": null_counts_after.get("outlet_size", 0),
+            "total_nulls_before": sum(null_counts_before.values()),
+            "total_nulls_after": sum(null_counts_after.values()),
+            "columns_imputed": [
+                c for c in clean_df.columns
+                if null_counts_before.get(c, 0) > null_counts_after.get(c, 0)
+            ]
         },
         "columns_profile": [
             {
@@ -389,9 +391,43 @@ def run_sales_pipeline(
         json.dumps(quality_report)
     ))
     conn.commit()
+
+    # Recreate sales_sandbox matching newly created schema
+    cursor.execute("""
+        DROP TABLE IF EXISTS sales_sandbox CASCADE;
+        CREATE TABLE sales_sandbox (LIKE sales INCLUDING ALL);
+        INSERT INTO sales_sandbox SELECT * FROM sales;
+        GRANT SELECT ON TABLE sales_sandbox TO sales_readonly;
+    """)
+    conn.commit()
+
+    # Persist dynamic schema metadata and data dictionary to database
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS schema_metadata (
+            id SERIAL PRIMARY KEY,
+            dataset_name VARCHAR(255) NOT NULL,
+            table_name VARCHAR(255) NOT NULL DEFAULT 'sales',
+            row_count INT NOT NULL DEFAULT 0,
+            column_count INT NOT NULL DEFAULT 0,
+            columns_info JSONB NOT NULL DEFAULT '[]'::jsonb,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+        GRANT SELECT ON TABLE schema_metadata TO sales_readonly;
+    """)
+    cursor.execute("""
+        INSERT INTO schema_metadata (dataset_name, table_name, row_count, column_count, columns_info)
+        VALUES (%s, %s, %s, %s, %s);
+    """, (
+        os.path.basename(input_csv),
+        "sales",
+        cleaned_total_rows,
+        len(clean_df.columns),
+        json.dumps(schema_metadata["columns"])
+    ))
+    conn.commit()
     cursor.close()
     conn.close()
-    logger.info("Successfully persisted quality report to PostgreSQL.")
+    logger.info("Successfully persisted quality report and schema metadata to PostgreSQL.")
     
     spark.stop()
     logger.info("Universal PySpark Pipeline completed successfully.")

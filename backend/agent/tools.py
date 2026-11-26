@@ -35,13 +35,8 @@ def query_sales_tool(sql_query: str) -> str:
 @tool
 def search_docs_tool(query: str, top_k: int = 3) -> str:
     """
-    Searches internal company policy documents via semantic vector search in pgvector.
-    Available documents cover:
-    1. return_policy.md: return windows (30 days non-perishables, 7 days perishables/dairy), condition requirements, refunds, store credit.
-    2. faq.md: operating hours (Supermarkets 7am-10pm, Grocery 8am-8pm), BigMart Rewards loyalty program (1 pt/$1, double points on Tuesdays), home delivery rules.
-    3. promotion_policy.md: 15% discount on Low Fat items, category bundles, Tier 3 bulk discounts, coupon stacking rules.
-    4. outlet_guidelines.md: Tier 1/2/3 definitions, cold chain storage (-2C to 4C for dairy/meat, -18C for frozen), FIFO stock rotation.
-    5. pricing_policy.md: strict MRP adherence, competitor price match within 5 miles, freshness markdown schedule (10% at 14d, 25% at 7d, 50% at 2d), wholesale discounts.
+    Searches internal company policy and operational documents via semantic vector search in pgvector.
+    Returns the most relevant chunks with similarity scores and document citations.
     """
     result = search_docs(query, top_k=top_k)
     return json.dumps(result)
@@ -49,8 +44,8 @@ def search_docs_tool(query: str, top_k: int = 3) -> str:
 @tool
 def get_data_quality_report_tool() -> str:
     """
-    Retrieves the PySpark data quality report showing before/after row counts,
-    null imputations, label cleanups, and summary metrics for the BigMart sales dataset.
+    Retrieves the PySpark data quality report showing record profiles, null imputations,
+    column profiles, and summary metrics for the uploaded dataset.
     """
     result = get_data_quality_report()
     return json.dumps(result)

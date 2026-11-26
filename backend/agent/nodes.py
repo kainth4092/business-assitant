@@ -28,22 +28,50 @@ from mcp_server.tools import query_sales, search_docs, get_data_quality_report, 
 load_dotenv()
 logger = logging.getLogger("AgentNodes")
 
+DEFAULT_LLM_MODEL = "gemini-3.5-flash-lite"
+
 def is_valid_gemini_key() -> bool:
     key = os.environ.get("GOOGLE_API_KEY", "").strip()
     return bool(key and not key.startswith("your_") and not key.startswith("mock_"))
+
+def extract_text_content(content: Any) -> str:
+    """Extracts plain text from either a string or Gemini 3.x list-of-blocks response content."""
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict) and block.get("type") == "text" and isinstance(block.get("text"), str):
+                parts.append(block["text"])
+        return "\n".join(parts).strip()
+    return str(content or "").strip()
+
+def _parse_json_response(content: Any) -> Dict[str, Any]:
+    """Extracts and parses a JSON object from LLM response content (stripping markdown fences)."""
+    text = extract_text_content(content)
+    if "```json" in text:
+        text = text.split("```json")[1].split("```")[0].strip()
+    elif "```" in text:
+        text = text.split("```")[1].split("```")[0].strip()
+    return json.loads(text)
 
 def get_llm():
     """Returns Gemini Chat model instance if API key is configured."""
     if is_valid_gemini_key():
         from langchain_google_genai import ChatGoogleGenerativeAI
-        model_name = os.environ.get("LLM_MODEL", "gemini-1.5-flash")
-        return ChatGoogleGenerativeAI(
-            model=model_name,
-            temperature=0.0,
-            google_api_key=os.environ.get("GOOGLE_API_KEY"),
-            max_retries=1,
-            timeout=5.0
-        )
+        model_name = os.environ.get("LLM_MODEL", DEFAULT_LLM_MODEL).strip() or DEFAULT_LLM_MODEL
+        kwargs = {
+            "model": model_name,
+            "google_api_key": os.environ.get("GOOGLE_API_KEY"),
+            "max_retries": 1,
+            "timeout": 25.0,
+        }
+        # Gemini 3.x / 4.x models use fixed sampling defaults and warn if temperature=0.0 is passed
+        if not ("gemini-3" in model_name or "gemini-4" in model_name):
+            kwargs["temperature"] = 0.0
+        return ChatGoogleGenerativeAI(**kwargs)
     return None
 
 # ==============================================================================
@@ -84,8 +112,19 @@ def heuristic_route(query: str) -> str:
         return "docs"  # Default to company knowledge
 
 def router_node(state: AgentState) -> Dict[str, Any]:
-    """Analyzes the query and routes it to data, docs, or both."""
+    """Analyzes the query and routes it to data, docs, or both (or honors explicit override)."""
     query = state.get("user_query", "")
+    explicit_route = (state.get("route") or "").strip().lower()
+    if explicit_route in ("data", "docs", "both"):
+        logger.info(f"Router using explicit route override '{explicit_route}' for '{query}'")
+        return {
+            "route": explicit_route,
+            "retry_count": state.get("retry_count", 0),
+            "tools_used": [],
+            "tool_results": [],
+            "sources": []
+        }
+
     llm = get_llm()
     
     chosen_route = "docs"
@@ -95,13 +134,7 @@ def router_node(state: AgentState) -> Dict[str, Any]:
                 SystemMessage(content=ROUTER_SYSTEM_PROMPT),
                 HumanMessage(content=f"User Question: {query}")
             ])
-            text = response.content.strip()
-            # Extract json if enclosed in markdown code fences
-            if "```json" in text:
-                text = text.split("```json")[1].split("```")[0].strip()
-            elif "```" in text:
-                text = text.split("```")[1].split("```")[0].strip()
-            parsed = json.loads(text)
+            parsed = _parse_json_response(response.content)
             route_val = parsed.get("route", "").lower()
             if route_val in ("data", "docs", "both"):
                 chosen_route = route_val
@@ -199,12 +232,21 @@ def agent_node(state: AgentState) -> Dict[str, Any]:
             ])
             
             if response.tool_calls:
+                tool_name_map = {
+                    "query_sales_tool": "query_sales",
+                    "query_sales": "query_sales",
+                    "search_docs_tool": "search_docs",
+                    "search_docs": "search_docs",
+                    "get_data_quality_report_tool": "get_data_quality_report",
+                    "get_data_quality_report": "get_data_quality_report",
+                }
                 for tc in response.tool_calls:
                     fn_name = tc["name"]
                     fn_args = tc["args"]
-                    tools_called.append(fn_name)
-                    
-                    if fn_name in ("query_sales_tool", "query_sales"):
+                    canonical_name = tool_name_map.get(fn_name, fn_name)
+                    tools_called.append(canonical_name)
+
+                    if canonical_name == "query_sales":
                         raw = query_sales(fn_args.get("sql_query", ""))
                         tool_results.append({"tool": "query_sales", "output": raw})
                         if raw.get("status") == "SUCCESS":
@@ -213,7 +255,7 @@ def agent_node(state: AgentState) -> Dict[str, Any]:
                                 "query": raw.get("query_executed"),
                                 "row_count": raw.get("row_count")
                             })
-                    elif fn_name in ("search_docs_tool", "search_docs"):
+                    elif canonical_name == "search_docs":
                         raw = search_docs(fn_args.get("query", query), top_k=fn_args.get("top_k", 3))
                         tool_results.append({"tool": "search_docs", "output": raw})
                         for item in raw.get("results", []):
@@ -221,12 +263,12 @@ def agent_node(state: AgentState) -> Dict[str, Any]:
                                 "type": "document",
                                 "file": item["source_file"],
                                 "title": item["title"],
-                                "snippet": item["content"][:220]
+                                "snippet": (item.get("content") or "")[:220]
                             })
-                    elif fn_name in ("get_data_quality_report_tool", "get_data_quality_report"):
+                    elif canonical_name == "get_data_quality_report":
                         raw = get_data_quality_report()
                         tool_results.append({"tool": "get_data_quality_report", "output": raw})
-                        sources.append({"type": "report", "pipeline": "PySpark BigMart Sales Cleaning"})
+                        sources.append({"type": "report", "pipeline": "PySpark Universal Data Cleaning"})
         except Exception as e:
             logger.warning(f"LLM tool calling error ({e}). Using deterministic tool execution.")
             tools_called, tool_results, sources = [], [], []
@@ -262,7 +304,7 @@ def agent_node(state: AgentState) -> Dict[str, Any]:
             tools_called.append("get_data_quality_report")
             res = get_data_quality_report()
             tool_results.append({"tool": "get_data_quality_report", "output": res})
-            sources.append({"type": "report", "pipeline": "PySpark BigMart Sales Cleaning"})
+            sources.append({"type": "report", "pipeline": "PySpark Universal Data Cleaning"})
 
     return {
         "tools_used": tools_called,
@@ -283,7 +325,7 @@ def answer_node(state: AgentState) -> Dict[str, Any]:
     draft = ""
     if llm:
         try:
-            context_str = json.dumps(tool_results, indent=2)
+            context_str = json.dumps(tool_results, indent=2, default=str)
             prompt = (
                 f"User Question: {query}\n"
                 f"Assigned Route: {route}\n"
@@ -294,7 +336,7 @@ def answer_node(state: AgentState) -> Dict[str, Any]:
                 SystemMessage(content=ANSWER_SYSTEM_PROMPT),
                 HumanMessage(content=prompt)
             ])
-            draft = resp.content.strip()
+            draft = extract_text_content(resp.content)
         except Exception as e:
             logger.warning(f"LLM answer generation failed ({e}). Using template synthesis.")
             draft = ""
@@ -331,8 +373,10 @@ def answer_node(state: AgentState) -> Dict[str, Any]:
                 parts.append("### PySpark Data Quality Audit Report")
                 parts.append(f"- **Cleaned Total Rows**: {rep.get('records_profile', {}).get('cleaned_total_rows')}")
                 parts.append(f"- **Duplicate Rows Dropped**: {rep.get('records_profile', {}).get('duplicate_rows_removed')}")
-                parts.append(f"- **Total Revenue**: ${rep.get('sales_summary_metrics', {}).get('total_revenue'):,}")
-                parts.append(f"- **Standardized Fat Labels**: {', '.join(rep.get('label_standardization', {}).get('fat_content_labels_after', []))}\n")
+                total_rev = rep.get("sales_summary_metrics", {}).get("total_revenue")
+                if total_rev is not None:
+                    parts.append(f"- **Total Revenue**: ${total_rev:,}")
+                parts.append("")
                 
         if not parts:
             draft = "I reviewed your question, but could not retrieve matching information from the sales database or company documents."
@@ -350,38 +394,45 @@ def check_node(state: AgentState) -> Dict[str, Any]:
     tool_results = state.get("tool_results", [])
     query = state.get("user_query", "")
     current_retries = state.get("retry_count", 0)
-    llm = get_llm()
-    
+    use_llm_checker = os.environ.get("ENABLE_LLM_CHECKER", "false").lower() == "true"
+
     is_grounded = True
-    feedback = "Answer is fully grounded in tool results."
-    
-    if llm and draft:
-        try:
-            eval_prompt = (
-                f"User Question: {query}\n"
-                f"Tool Outputs:\n{json.dumps(tool_results, indent=2)}\n\n"
-                f"Draft Answer:\n{draft}\n\n"
-                "Evaluate if the draft answer is grounded in the tool outputs."
-            )
-            resp = llm.invoke([
-                SystemMessage(content=CHECKER_SYSTEM_PROMPT),
-                HumanMessage(content=eval_prompt)
-            ])
-            text = resp.content.strip()
-            if "```json" in text:
-                text = text.split("```json")[1].split("```")[0].strip()
-            elif "```" in text:
-                text = text.split("```")[1].split("```")[0].strip()
-            eval_data = json.loads(text)
-            is_grounded = bool(eval_data.get("is_grounded", True))
-            feedback = eval_data.get("feedback", "Evaluation completed.")
-        except Exception as e:
-            logger.warning(f"LLM checker failed ({e}). Using deterministic groundedness check.")
+    feedback = "Deterministic check: Tool outputs verified and draft answer synthesized."
+
+    tool_errors = [
+        tr.get("output", {}).get("error")
+        for tr in tool_results
+        if isinstance(tr.get("output"), dict) and tr.get("output", {}).get("status") == "ERROR"
+    ]
+
+    if not tool_results or len(draft.strip()) <= 20:
+        is_grounded = False
+        feedback = "Missing tool outputs or draft answer is too short."
+    elif tool_errors:
+        is_grounded = False
+        feedback = f"Tool execution error detected: {'; '.join(str(e) for e in tool_errors)}"
+    elif use_llm_checker:
+        llm = get_llm()
+        if llm:
+            try:
+                eval_prompt = (
+                    f"User Question: {query}\n"
+                    f"Tool Outputs:\n{json.dumps(tool_results, indent=2, default=str)}\n\n"
+                    f"Draft Answer:\n{draft}\n\n"
+                    "Evaluate if the draft answer is grounded in the tool outputs."
+                )
+                resp = llm.invoke([
+                    SystemMessage(content=CHECKER_SYSTEM_PROMPT),
+                    HumanMessage(content=eval_prompt)
+                ])
+                eval_data = _parse_json_response(resp.content)
+                is_grounded = bool(eval_data.get("is_grounded", True))
+                feedback = eval_data.get("feedback", "Evaluation completed.")
+            except Exception as e:
+                logger.warning(f"LLM checker failed ({e}). Using deterministic groundedness check.")
+                is_grounded = bool(len(tool_results) > 0 and len(draft) > 50)
+        else:
             is_grounded = bool(len(tool_results) > 0 and len(draft) > 50)
-    else:
-        # Deterministic check: verify non-empty draft and tool outputs exist
-        is_grounded = bool(len(tool_results) > 0 and len(draft) > 50)
-        feedback = "Deterministic check: Tool outputs verified and draft answer synthesized."
 
     # If grounded or if retry cap is reached, finalize
     new_retry_count = current_retries

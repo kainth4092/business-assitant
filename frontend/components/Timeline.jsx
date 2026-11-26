@@ -1,122 +1,151 @@
 "use client";
 
-import React from "react";
-import { CheckCircle2, Clock, AlertCircle, Compass, Database, FileText, Sparkles, ShieldCheck } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Check, Minus, AlertCircle } from "lucide-react";
+
+const LIVE_STEP_SEQUENCE = [
+  { id: "route", name: "Route", detail: "Classifying intent (DATA / DOCS / BOTH)" },
+  { id: "query", name: "Query", detail: "Validating and executing read-only SQL" },
+  { id: "retrieve", name: "Retrieve", detail: "Searching vector chunks in pgvector" },
+  { id: "answer", name: "Answer", detail: "Drafting response with inline citations" },
+  { id: "check", name: "Check", detail: "Verifying factual groundedness" },
+];
 
 export default function Timeline({
+  steps = null,
   trace = {},
   toolsUsed = [],
-  mode = "horizontal", // 'horizontal' | 'vertical'
-  isLoading = false
+  mode = "vertical", // "vertical" | "horizontal"
+  isLoading = false,
+  activeLiveStep = null,
+  liveMessage = null,
 }) {
-  const route = trace?.route || (toolsUsed.includes("query_sales") && toolsUsed.includes("search_docs") ? "both" : toolsUsed.includes("query_sales") ? "data" : "docs");
-  const retries = trace?.retries ?? 0;
+  const [tickIdx, setTickIdx] = useState(0);
+
+  useEffect(() => {
+    if (!isLoading || activeLiveStep) return;
+    const timer = setInterval(() => {
+      setTickIdx((prev) => (prev + 1) % LIVE_STEP_SEQUENCE.length);
+    }, 1300);
+    return () => clearInterval(timer);
+  }, [isLoading, activeLiveStep]);
+
+  const effectiveTickIdx = isLoading ? tickIdx : 0;
+
+  const route =
+    trace?.route ||
+    (toolsUsed.includes("query_sales") && toolsUsed.includes("search_docs")
+      ? "both"
+      : toolsUsed.includes("query_sales")
+      ? "data"
+      : "docs");
+
+  const hasSql =
+    !isLoading && toolsUsed.length > 0
+      ? toolsUsed.includes("query_sales")
+      : toolsUsed.includes("query_sales") || route === "data" || route === "both";
+  const hasDocs =
+    !isLoading && toolsUsed.length > 0
+      ? toolsUsed.includes("search_docs")
+      : toolsUsed.includes("search_docs") || route === "docs" || route === "both";
   const isGrounded = trace?.is_grounded ?? true;
+  const retries = trace?.retries ?? 0;
 
-  const hasSql = toolsUsed.includes("query_sales") || route === "data" || route === "both";
-  const hasDocs = toolsUsed.includes("search_docs") || route === "docs" || route === "both";
+  const computedSteps =
+    steps ||
+    LIVE_STEP_SEQUENCE.map((s, idx) => {
+      if (isLoading) {
+        const activeIdx = activeLiveStep
+          ? Math.max(0, LIVE_STEP_SEQUENCE.findIndex((item) => item.id === activeLiveStep))
+          : effectiveTickIdx;
+        const status = idx < activeIdx ? "done" : idx === activeIdx ? "active" : "pending";
+        return {
+          ...s,
+          status,
+          desc:
+            idx === activeIdx && liveMessage
+              ? liveMessage
+              : s.detail,
+        };
+      }
 
-  const steps = [
-    {
-      id: "route",
-      num: "1",
-      name: "Route",
-      subtext: route.toUpperCase(),
-      icon: Compass,
-      status: "done",
-      color: "text-accent-emerald",
-      bg: "bg-accent-emerald/10 border-accent-emerald/30",
-    },
-    {
-      id: "sql",
-      num: "2",
-      name: "SQL Gen",
-      subtext: hasSql ? "PostgreSQL" : "Bypassed",
-      icon: Database,
-      status: hasSql ? "done" : "skipped",
-      color: hasSql ? "text-accent-cyan" : "text-muted",
-      bg: hasSql ? "bg-accent-cyan/10 border-accent-cyan/30" : "bg-surface-container border-border",
-    },
-    {
-      id: "retrieve",
-      num: "3",
-      name: "Retrieve",
-      subtext: hasDocs ? "pgvector (k=3)" : "Bypassed",
-      icon: FileText,
-      status: hasDocs ? "done" : "skipped",
-      color: hasDocs ? "text-accent-amber" : "text-muted",
-      bg: hasDocs ? "bg-accent-amber/10 border-accent-amber/30" : "bg-surface-container border-border",
-    },
-    {
-      id: "synthesis",
-      num: "4",
-      name: "Synthesis",
-      subtext: isLoading ? "Streaming..." : "Gemini 3.8",
-      icon: Sparkles,
-      status: isLoading ? "active" : "done",
-      color: "text-accent-lime",
-      bg: isLoading ? "bg-accent-lime/20 border-accent-lime" : "bg-surface-container border-border",
-    },
-    {
-      id: "safety",
-      num: "5",
-      name: "Safety",
-      subtext: retries > 0 ? `${retries}/2 retries` : isGrounded ? "Grounded" : "Review",
-      icon: ShieldCheck,
-      status: isLoading ? "pending" : isGrounded ? "done" : "warn",
-      color: isGrounded ? "text-accent-emerald" : "text-accent-amber",
-      bg: isGrounded ? "bg-accent-emerald/10 border-accent-emerald/30" : "bg-accent-amber/10 border-accent-amber/30",
-    },
-  ];
+      if (s.id === "route") {
+        return { ...s, status: "done", desc: `Routed to [${route.toUpperCase()}]` };
+      }
+      if (s.id === "query") {
+        return {
+          ...s,
+          status: hasSql ? "done" : "bypassed",
+          desc: hasSql ? "Executed read-only SELECT" : "Bypassed",
+        };
+      }
+      if (s.id === "retrieve") {
+        return {
+          ...s,
+          status: hasDocs ? "done" : "bypassed",
+          desc: hasDocs ? "Retrieved pgvector chunks" : "Bypassed",
+        };
+      }
+      if (s.id === "answer") {
+        return { ...s, status: "done", desc: "Synthesized grounded log entry" };
+      }
+      return {
+        ...s,
+        status: isGrounded ? "done" : "failed",
+        desc: isGrounded ? `Verified (${retries}/2 retries)` : "Flagged for review",
+      };
+    });
 
-  // =========================================================================
-  // HORIZONTAL PIPELINE STRIP
-  // =========================================================================
+  const activeStepObj = computedSteps.find((s) => s.status === "active") || computedSteps[0];
+
   if (mode === "horizontal") {
     return (
-      <div className="bg-surface rounded-lg p-3 border border-border shadow-xs flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-accent-emerald" />
-            <span className="font-mono text-[10px] uppercase text-primary font-bold tracking-wider">
-              Multi-Agent Dispatch Flow
-            </span>
+      <div
+        className="border border-grid rounded-xs bg-raised p-3 paper-stack space-y-2.5"
+        role="status"
+        aria-live="polite"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-wider text-ink">
+            <span className="inline-block w-2 h-2 rounded-xs bg-highlighter border border-ink" />
+            <span>{isLoading ? `Running: ${activeStepObj.name}` : "Pipeline Complete"}</span>
           </div>
-          <span className="font-mono text-[10px] text-muted">
-            Route: [{route.toUpperCase()}] &middot; Verified Grounded
+          <span className="font-mono text-[11px] text-muted truncate">
+            {liveMessage || activeStepObj.desc}
           </span>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-center">
-          {steps.map((st) => {
-            const Icon = st.icon;
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+          {computedSteps.map((st, idx) => {
             const isActive = st.status === "active";
             const isDone = st.status === "done";
+            const isBypassed = st.status === "bypassed";
             return (
               <div
                 key={st.id}
-                className={`flex items-center gap-2 px-2.5 py-1.5 rounded border transition-all ${st.bg} ${
-                  isActive ? "ring-2 ring-accent-lime shadow-xs" : ""
+                className={`relative overflow-hidden border rounded-xs px-2.5 py-1.5 ${
+                  isActive
+                    ? "border-ink bg-raised"
+                    : isDone
+                    ? "border-grid bg-sunken/70"
+                    : "border-grid bg-paper/60 opacity-75"
                 }`}
               >
-                {isActive ? (
-                  <span className="relative flex h-3 w-3 shrink-0">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-lime opacity-75" />
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-accent-lime" />
-                  </span>
-                ) : isDone ? (
-                  <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${st.color} stroke-[2.2]`} />
-                ) : (
-                  <Clock className="w-3.5 h-3.5 shrink-0 text-muted stroke-[2]" />
+                {isActive && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-0 bg-highlighter-wash animate-highlighter-stroke"
+                  />
                 )}
-
-                <div className="flex flex-col min-w-0">
-                  <span className="font-mono text-[10px] uppercase font-bold text-primary truncate leading-tight">
-                    {st.num}. {st.name}
+                <div className="relative flex items-center justify-between gap-1 font-mono text-[10px]">
+                  <span className="font-bold text-ink uppercase">
+                    0{idx + 1} {st.name}
                   </span>
-                  <span className="font-mono text-[9.5px] text-muted truncate leading-tight">
-                    {st.subtext}
-                  </span>
+                  {isDone && <Check className="w-3 h-3 text-sage-ink" strokeWidth={1.8} />}
+                  {isBypassed && <Minus className="w-3 h-3 text-muted" strokeWidth={1.6} />}
+                </div>
+                <div className="relative font-mono text-[9.5px] text-muted truncate mt-0.5">
+                  {st.desc}
                 </div>
               </div>
             );
@@ -126,55 +155,70 @@ export default function Timeline({
     );
   }
 
-  // =========================================================================
-  // VERTICAL INFERENCE CALL STACK
-  // =========================================================================
   return (
-    <div className="bg-surface rounded-lg p-3.5 border border-border shadow-xs flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-[10px] uppercase text-muted font-bold tracking-wider">
-          Inference Call Stack
-        </span>
-        <span className="font-mono text-[10px] text-accent-emerald font-semibold">
-          {steps.filter((s) => s.status === "done").length} Completed
-        </span>
-      </div>
+    <ol className="space-y-2 relative" aria-label="Agent execution steps">
+      {computedSteps.map((st, idx) => {
+        const isActive = st.status === "active";
+        const isDone = st.status === "done";
+        const isFailed = st.status === "failed";
+        const isBypassed = st.status === "bypassed";
 
-      <div className="relative pl-5 flex flex-col gap-3.5">
-        {/* Continuous vertical connecting line */}
-        <div className="absolute left-1.5 top-2 bottom-2 w-[1px] bg-border" />
-
-        {steps.map((st) => {
-          const isDone = st.status === "done";
-          const isActive = st.status === "active";
-
-          return (
-            <div key={st.id} className="relative flex items-start gap-2.5">
-              <div
-                className={`absolute -left-5 top-0.5 w-3 h-3 rounded-full border-2 border-surface transition-colors ${
-                  isActive
-                    ? "bg-accent-lime animate-ping"
-                    : isDone
-                    ? "bg-accent-emerald"
-                    : "bg-border"
-                }`}
+        return (
+          <li
+            key={st.id}
+            className={`relative border rounded-xs px-3 py-2 overflow-hidden transition-colors ${
+              isActive
+                ? "border-ink bg-raised"
+                : isFailed
+                ? "border-seal bg-seal-tint"
+                : isBypassed
+                ? "border-grid/70 bg-paper/40 opacity-75"
+                : "border-grid bg-raised"
+            }`}
+          >
+            {isActive && (
+              <span
+                aria-hidden="true"
+                className="absolute inset-0 bg-highlighter-wash animate-highlighter-stroke"
               />
-              <div className="flex flex-col min-w-0">
-                <span className="font-mono text-[11px] font-bold text-primary leading-tight">
-                  {st.num}. {st.name}: {st.subtext}
+            )}
+            <div className="relative flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="font-mono text-[10px] font-bold text-muted tabular-mono shrink-0">
+                  0{idx + 1}
                 </span>
-                <span className="font-mono text-[10px] text-muted leading-tight mt-0.5">
-                  {st.id === "route" && `Intent classified into [${route.toUpperCase()}]`}
-                  {st.id === "sql" && (hasSql ? "SELECT query dispatched to Postgres 16" : "No SQL required")}
-                  {st.id === "retrieve" && (hasDocs ? "Cosine search over 21 document embeddings" : "No documents needed")}
-                  {st.id === "synthesis" && (isLoading ? "Streaming grounded claim tokens" : "Synthesized response generated")}
-                  {st.id === "safety" && (isGrounded ? "Grounded in tool outputs with 0 hallucination" : "Evaluating groundedness")}
+                <span
+                  className={`font-mono text-xs font-bold uppercase tracking-wider truncate ${
+                    isActive ? "marker-stroke text-ink" : "text-ink"
+                  }`}
+                >
+                  {st.name}
                 </span>
               </div>
+              <span className="font-mono text-[10px] font-semibold shrink-0 flex items-center gap-1">
+                {isDone && (
+                  <span className="text-sage-ink inline-flex items-center gap-1">
+                    <Check className="w-3 h-3" strokeWidth={1.8} />
+                    OK
+                  </span>
+                )}
+                {isActive && <span className="text-ink font-bold">ACTIVE</span>}
+                {isBypassed && <span className="text-muted">SKIP</span>}
+                {isFailed && (
+                  <span className="text-seal-ink inline-flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" strokeWidth={1.8} />
+                    CHECK
+                  </span>
+                )}
+                {st.status === "pending" && <span className="text-muted">WAIT</span>}
+              </span>
             </div>
-          );
-        })}
-      </div>
-    </div>
+            <p className="relative font-mono text-[11px] text-muted mt-1 leading-snug break-words">
+              {st.desc}
+            </p>
+          </li>
+        );
+      })}
+    </ol>
   );
 }

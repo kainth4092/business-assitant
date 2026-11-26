@@ -1,4 +1,4 @@
-.PHONY: setup start test lint build clean
+.PHONY: setup start-backend start-frontend channels test lint build clean
 
 setup:
 	@bash scripts/setup.sh
@@ -8,6 +8,9 @@ start-backend:
 
 start-frontend:
 	@cd frontend && npm run dev
+
+channels:
+	@.venv/bin/python3 -m backend.support.channel_manager
 
 test:
 	@.venv/bin/pytest tests/ -v

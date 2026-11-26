@@ -2,6 +2,7 @@
 Unit & Security Tests for SQL Sanitization and Read-Only Enforcement
 """
 
+import os
 import pytest
 from mcp_server.tools import validate_and_sanitize_sql, query_sales
 
@@ -55,6 +56,18 @@ def test_reject_embedded_mutation_keywords():
         validate_and_sanitize_sql("SELECT * FROM sales WHERE item_type = 'Dairy' AND (SELECT count(*) FROM (TRUNCATE sales)) > 0")
 
 def test_live_query_sales_execution():
+    import psycopg2
+    test_db = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres_password@localhost:5434/business_assistant_test")
+    conn = psycopg2.connect(test_db)
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO sales (item_identifier, item_type, item_outlet_sales, item_fat_content, outlet_identifier, outlet_establishment_year, outlet_location_type, outlet_type, item_mrp)
+        VALUES ('test_item_1', 'Dairy', 100.0, 'Regular', 'OUT001', 2020, 'Tier 1', 'Supermarket', 50.0);
+    """)
+    conn.commit()
+    cur.close()
+    conn.close()
+
     res = query_sales("SELECT item_type, count(*) as count FROM sales GROUP BY item_type LIMIT 2")
     assert res["status"] == "SUCCESS"
     assert res["row_count"] <= 2

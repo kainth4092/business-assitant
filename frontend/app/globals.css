@@ -1,166 +1,361 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.js";
 
-/* ==============================================================================
-   LIGHT THEME TOKENS (Warm Technical Dossier)
-   ============================================================================== */
+/* ============================================================================
+   JAPANESE STATIONERY x FLIGHT-STRIP DESIGN TOKENS
+   Light Theme First ("Stationery Day Shift")
+   ============================================================================ */
 :root {
-  --bg-page: #F6F1E7;
-  --bg-surface: #FAF6EE;
-  --bg-surface-lowest: #FFFFFF;
-  --bg-surface-low: #F8F3E9;
-  --bg-surface-container: #F2EDE3;
-  --bg-surface-high: #EDE8DE;
-  --bg-surface-highest: #E7E2D8;
+  color-scheme: light;
 
-  --text-primary: #181C22;
-  --text-muted: #5A6578; /* Contrast > 5.5:1 */
+  /* Core Paper & Ink */
+  --bg-paper: #F3EFE4;
+  --bg-raised: #FBF9F2;
+  --bg-sunken: #E8E2D2;
+  --grid-line: #D3CCB9;
+  --grid-strong: #B8B09A;
 
-  --border-default: #DFD5C4;
-  --border-subtle: #E4DDD1;
-  --border-strong: #DCD3C4;
+  --ink: #16202F;
+  --muted: #55524A;
 
-  /* Semantic Accents */
-  --accent-lime: #84CC16;
-  --accent-lime-hover: #72B313;
-  --accent-lime-contrast: #1C2024;
-  --accent-lime-subtle: rgba(132, 204, 22, 0.12);
-  --accent-lime-border: rgba(132, 204, 22, 0.35);
+  /* Hanko Seal Red & Highlighter */
+  --seal-red: #C8372D;
+  --seal-red-ink: color-mix(in srgb, #C8372D 80%, #16202F);
+  --seal-red-tint: color-mix(in srgb, #C8372D 10%, transparent);
+  --seal-ink-on: #FBF9F2;
 
-  --accent-cyan: #0891B2;
-  --accent-cyan-subtle: rgba(8, 145, 178, 0.08);
-  --accent-cyan-border: rgba(8, 145, 178, 0.25);
+  --highlighter: #F2D45C;
+  --highlighter-wash: color-mix(in srgb, #F2D45C 38%, transparent);
+  --highlighter-ink: #16202F;
 
-  --accent-amber: #B45309;
-  --accent-amber-subtle: rgba(180, 83, 9, 0.08);
-  --accent-amber-border: rgba(180, 83, 9, 0.25);
+  /* Semantic States (AA-verified ink pairings on paper) */
+  --sage: #5E8C6A;
+  --sage-ink: color-mix(in srgb, #5E8C6A 64%, #16202F);
+  --sage-tint: color-mix(in srgb, #5E8C6A 13%, transparent);
 
-  --accent-emerald: #059669;
-  --accent-emerald-subtle: rgba(5, 150, 105, 0.08);
-  --accent-emerald-border: rgba(5, 150, 105, 0.25);
+  --amber: #B7791F;
+  --amber-ink: color-mix(in srgb, #B7791F 66%, #16202F);
+  --amber-tint: color-mix(in srgb, #B7791F 12%, transparent);
 
-  --accent-crimson: #DC2626;
-  --accent-crimson-subtle: rgba(220, 38, 38, 0.08);
-  --accent-crimson-border: rgba(220, 38, 38, 0.25);
+  /* Routes: DATA (Ink Blue), DOCS (Ochre), BOTH (Sage) */
+  --route-data: #2F5D8A;
+  --route-data-ink: color-mix(in srgb, #2F5D8A 88%, #16202F);
+  --route-data-tint: color-mix(in srgb, #2F5D8A 11%, transparent);
+
+  --route-docs: #A8741A;
+  --route-docs-ink: color-mix(in srgb, #A8741A 66%, #16202F);
+  --route-docs-tint: color-mix(in srgb, #A8741A 12%, transparent);
+
+  --route-both: #5E8C6A;
+  --route-both-ink: color-mix(in srgb, #5E8C6A 64%, #16202F);
+  --route-both-tint: color-mix(in srgb, #5E8C6A 13%, transparent);
+
+  /* Code / SQL well */
+  --sql-bg: #16202F;
+  --sql-fg: #E9E4D6;
+  --sql-border: #2C394E;
+  --sql-kw: #82B1E0;
+  --sql-num: #F2D45C;
+
+  /* Paper stack hard offset depth */
+  --shadow-stack: 2px 2px 0 var(--grid-line);
+  --shadow-stack-strong: 3px 3px 0 var(--grid-strong);
+
+  /* Grid line opacity (~4%) */
+  --paper-grid-ink: color-mix(in srgb, var(--ink) 4%, transparent);
 }
 
-/* ==============================================================================
-   DARK THEME TOKENS (Modern HUD & Technical Brutalism)
-   ============================================================================== */
+/* ============================================================================
+   DARK THEME ("Night Shift")
+   ============================================================================ */
 .dark {
-  --bg-page: #0E1116;
-  --bg-surface: #161B22;
-  --bg-surface-lowest: #0B0E13;
-  --bg-surface-low: #191C21;
-  --bg-surface-container: #1D242D;
-  --bg-surface-high: #272A30;
-  --bg-surface-highest: #32353A;
+  color-scheme: dark;
 
-  --text-primary: #F0F6FC;
-  --text-muted: #8B949E; /* Contrast > 6.5:1 */
+  --bg-paper: #10151D;
+  --bg-raised: #171E29;
+  --bg-sunken: #0B0F15;
+  --grid-line: #283344;
+  --grid-strong: #3B4960;
 
-  --border-default: #2A323C;
-  --border-subtle: #242B35;
-  --border-strong: #384454;
+  --ink: #E9E4D6;
+  --muted: #B6AFA0;
 
-  /* Semantic Accents (Dark Mode) */
-  --accent-lime: #C6F432;
-  --accent-lime-hover: #D4F858;
-  --accent-lime-contrast: #0E1116;
-  --accent-lime-subtle: rgba(198, 244, 50, 0.12);
-  --accent-lime-border: rgba(198, 244, 50, 0.35);
+  --seal-red: #D6493E;
+  --seal-red-ink: #F28B82;
+  --seal-red-tint: color-mix(in srgb, #E25B51 16%, transparent);
+  --seal-ink-on: #FFFFFF;
 
-  --accent-cyan: #22D3EE;
-  --accent-cyan-subtle: rgba(34, 211, 238, 0.10);
-  --accent-cyan-border: rgba(34, 211, 238, 0.30);
+  --highlighter: #E6C74C;
+  --highlighter-wash: color-mix(in srgb, #F2D45C 18%, transparent);
+  --highlighter-ink: #10151D;
 
-  --accent-amber: #F59E0B;
-  --accent-amber-subtle: rgba(245, 158, 11, 0.10);
-  --accent-amber-border: rgba(245, 158, 11, 0.30);
+  --sage: #6CA27A;
+  --sage-ink: #92C79F;
+  --sage-tint: color-mix(in srgb, #6CA27A 16%, transparent);
 
-  --accent-emerald: #10B981;
-  --accent-emerald-subtle: rgba(16, 185, 129, 0.12);
-  --accent-emerald-border: rgba(16, 185, 129, 0.35);
+  --amber: #D99B38;
+  --amber-ink: #EBB55B;
+  --amber-tint: color-mix(in srgb, #D99B38 16%, transparent);
 
-  --accent-crimson: #FFB4AB;
-  --accent-crimson-subtle: rgba(147, 0, 10, 0.20);
-  --accent-crimson-border: rgba(255, 180, 171, 0.35);
+  --route-data: #5D96CC;
+  --route-data-ink: #8BBDE9;
+  --route-data-tint: color-mix(in srgb, #5D96CC 16%, transparent);
+
+  --route-docs: #D99B38;
+  --route-docs-ink: #EBB55B;
+  --route-docs-tint: color-mix(in srgb, #D99B38 16%, transparent);
+
+  --route-both: #6CA27A;
+  --route-both-ink: #92C79F;
+  --route-both-tint: color-mix(in srgb, #6CA27A 16%, transparent);
+
+  --sql-bg: #0B0F15;
+  --sql-fg: #E9E4D6;
+  --sql-border: #283344;
+  --sql-kw: #8BBDE9;
+  --sql-num: #F2D45C;
+
+  --shadow-stack: 2px 2px 0 #070A0E;
+  --shadow-stack-strong: 3px 3px 0 #05070A;
+
+  --paper-grid-ink: color-mix(in srgb, var(--ink) 4.5%, transparent);
 }
 
-/* ==============================================================================
-   BASE DOCUMENT & OVERFLOW DEFAULTS
-   ============================================================================== */
-html, body {
+/* ============================================================================
+   BASE DOCUMENT & STATIONERY GRID-PAPER SURFACE
+   ============================================================================ */
+html,
+body {
   margin: 0;
   padding: 0;
-  background-color: var(--bg-page);
-  color: var(--text-primary);
-  font-family: var(--font-body), 'IBM Plex Sans', -apple-system, sans-serif;
+  background-color: var(--bg-paper);
+  color: var(--ink);
+  font-family: var(--font-sans), "Zen Kaku Gothic New", "Hiragino Sans", system-ui, sans-serif;
+  overflow-x: clip;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom scrollbars */
+.paper-grid {
+  background-color: var(--bg-paper);
+  background-image:
+    linear-gradient(to right, var(--paper-grid-ink) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--paper-grid-ink) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Ruled notebook line effect */
+.ruled-surface {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 31px,
+    color-mix(in srgb, var(--grid-line) 42%, transparent) 31px,
+    color-mix(in srgb, var(--grid-line) 42%, transparent) 32px
+  );
+}
+
+/* Highlighter marker stroke behind text */
+.marker-stroke {
+  background: linear-gradient(
+    180deg,
+    transparent 38%,
+    var(--highlighter-wash) 38%,
+    var(--highlighter-wash) 92%,
+    transparent 92%
+  );
+  padding-inline: 3px;
+}
+
+.marker-fill {
+  background-color: var(--highlighter);
+  color: var(--highlighter-ink);
+}
+
+/* Hard paper stack elevation */
+.paper-stack {
+  box-shadow: var(--shadow-stack);
+}
+
+.paper-stack-strong {
+  box-shadow: var(--shadow-stack-strong);
+}
+
+/* Tabular mono helper */
+.tabular-mono {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Always-visible focus indicator */
+:where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.dark :where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
+  outline-color: var(--highlighter);
+}
+
+/* Modern CSS :has() structural highlights */
+.composer-frame:has(textarea:focus) {
+  border-color: var(--ink);
+  box-shadow: var(--shadow-stack-strong);
+}
+
+.dark .composer-frame:has(textarea:focus) {
+  border-color: var(--highlighter);
+}
+
+.strip-card:has(:focus-visible) {
+  border-color: var(--ink);
+}
+
+/* Container queries for flight-strip board & card catalog */
+.board-container {
+  container-type: inline-size;
+  container-name: board;
+}
+
+.catalog-container {
+  container-type: inline-size;
+  container-name: catalog;
+}
+
+.catalog-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+@container catalog (min-width: 580px) {
+  .catalog-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container catalog (min-width: 980px) {
+  .catalog-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* View Transitions for screen changes */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 140ms;
+  animation-timing-function: ease-out;
+}
+
+/* ============================================================================
+   RESTRAINED & PURPOSEFUL MOTION KEYFRAMES
+   ============================================================================ */
+
+/* Seal stamp drops in with 180ms scale & settle */
+@keyframes stamp-drop {
+  0% {
+    opacity: 0;
+    transform: scale(1.32) rotate(-5deg);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(0.96) rotate(-1.2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(-1.5deg);
+  }
+}
+
+.animate-stamp-drop {
+  animation: stamp-drop 180ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* New ticket strip slides in from right (200ms) with highlighter wash that fades */
+@keyframes strip-slide-in {
+  0% {
+    opacity: 0;
+    transform: translateX(18px);
+    background-color: var(--highlighter-wash);
+  }
+  55% {
+    opacity: 1;
+    transform: translateX(0);
+    background-color: var(--highlighter-wash);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+    background-color: var(--bg-raised);
+  }
+}
+
+.animate-strip-in {
+  animation: strip-slide-in 200ms ease-out forwards;
+}
+
+/* Active agent timeline step: highlighter stroke drawing left-to-right */
+@keyframes highlighter-sweep {
+  0% {
+    transform: scaleX(0.08);
+    opacity: 0.7;
+  }
+  60% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(0.2);
+    opacity: 0.75;
+  }
+}
+
+.animate-highlighter-stroke {
+  transform-origin: left center;
+  animation: highlighter-sweep 1.3s ease-in-out infinite;
+}
+
+/* Skeleton loading sweep */
+@keyframes paper-skeleton {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-paper {
+  background: linear-gradient(
+    90deg,
+    var(--bg-sunken) 20%,
+    var(--bg-raised) 50%,
+    var(--bg-sunken) 80%
+  );
+  background-size: 200% 100%;
+  animation: paper-skeleton 1.4s linear infinite;
+}
+
+/* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: var(--border-default);
-  border-radius: 3px;
+  background: var(--grid-line);
+  border-radius: 1px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--border-strong);
+  background: var(--grid-strong);
 }
 
-/* Shimmer animation for loading states */
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-.skeleton-shimmer {
-  background: linear-gradient(
-    90deg,
-    var(--bg-surface-low) 25%,
-    var(--bg-surface) 50%,
-    var(--bg-surface-low) 75%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-}
-
-/* Caret blinking for streaming text */
-@keyframes cursor-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-
-.streaming-cursor {
-  display: inline-block;
-  width: 8px;
-  height: 15px;
-  margin-left: 2px;
-  background-color: var(--accent-lime);
-  vertical-align: middle;
-  animation: cursor-blink 0.8s infinite;
-}
-
-/* Pulse ring animation strictly active while agent is working */
-@keyframes status-pulse-ring {
-  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(132, 204, 22, 0.7); }
-  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(132, 204, 22, 0); }
-  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(132, 204, 22, 0); }
-}
-
-.animate-agent-pulse {
-  animation: status-pulse-ring 1.6s infinite cubic-bezier(0.4, 0, 0.6, 1);
-}
-
+/* Respect prefers-reduced-motion */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -169,5 +364,10 @@ html, body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.01ms !important;
   }
 }

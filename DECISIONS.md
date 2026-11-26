@@ -209,3 +209,85 @@ This log records all technical, architectural, and design decisions made for the
   2. Enhanced `pipelines/ingest_docs.py` to truncate `document_embeddings` on full directory ingestion runs, ensuring that if files are removed or re-chunked, obsolete embeddings are immediately purged.
   3. Standardized categorical variant normalization in `pipelines/clean_sales.py` across string columns to handle common label variants (such as `LF`/`low fat` -> `Low Fat`, `reg` -> `Regular`) without hardcoded column names.
 - **Consequences**: Clean, unambiguous UI layout conforming strictly to single-control UX guidelines, and guaranteed 1:1 vector chunk fidelity matching the physical `docs/` folder.
+
+---
+
+### Decision 20: Full Zero-Mock Data-Agnostic Reset & Dedicated Test DB Isolation
+- **Context**: The project required a complete reset to a data-agnostic state so any user CSV and documents can be uploaded and processed without hardcoded references to BigMart or sample policies. Additionally, prior test runs polluted the application database with test tickets and audit records.
+- **Decision**:
+  1. **Test Database Isolation**:
+     - Created `business_assistant_test` database for all unit, integration, and guardrail tests.
+     - Implemented a strict safety guard in `tests/conftest.py` that raises a `RuntimeError` if any test attempts to connect to or read from `business_assistant`.
+  2. **Complete Data & Seed Purge**:
+     - Purged all Docker volumes, Parquet files, vector chunks, chat messages, tickets, and audit logs.
+     - Emptied `data/` and `docs/` directories, retaining only guidance `README.md` files.
+     - Removed `pipelines/generate_data.py` and all sample policies.
+     - Verified exactly 0 rows across all tables in `business_assistant`.
+  3. **Data-Agnostic PySpark & Ingestion Pipelines**:
+     - PySpark pipeline auto-discovers schema, column types (numeric, categorical, date/time, identifier), handles nulls, and dynamically creates the table in PostgreSQL.
+     - Document ingestion supports `.md`, `.txt`, and `.pdf` extracting titles directly from first headings or document text, with zero filler descriptions.
+     - `/sample-questions` dynamically derives analytical questions from discovered columns and document titles, returning an empty list `[]` when the database is empty.
+  4. **First-Run Onboarding & Genuine Empty States**:
+     - Main Analysis screen displays "Upload a CSV to begin" with an integrated "Add Data & Run Ingestion" panel (and modal accessible from top header).
+     - Data Quality displays "Run the pipeline to see a report".
+     - Documents displays "No documents yet".
+     - Support Desk displays "No tickets yet", with "Simulate Client" accepting custom user-entered incident messages.
+     - All fake metrics ("18ms", "0.8s", "1,500", "21 chunks") removed; values display "—" when no historical runs exist.
+  5. **Guardrail Tests**:
+     - Implemented `tests/test_zero_mock_guardrails.py` asserting no forbidden patterns appear in production code, testing 3 small synthetic CSVs generated strictly inside the test, and verifying 0 rows remain in the application database.
+- **Consequences**: The project is completely clean, robustly tested, and ready for any dataset uploaded via UI or CLI.
+
+
+
+---
+
+### Decision 21: Real Communication Channels for Support Desk (Telegram, Email, Slack, Teams Stub)
+- **Context**: Previously, Support Desk tickets only arrived via manual submission in the UI (`+ Simulate Client`) or HTTP `POST /support/messages` webhook. Real clients need to report problems directly from Telegram, Email, or Slack without requiring public webhook URLs for local deployments, while keeping sandbox isolation and human approval strictly unchanged.
+- **Decision**:
+  1. **Unified Adapter & Ingestion Architecture**:
+     - Standardized `ChannelAdapter` and `NormalizedChannelMessage` (`sender_name`, `sender_id`, `sender_email`, `channel`, `text`, `timestamp`, `thread_id`, `external_message_id`, `thread_url`, `metadata`) in `backend/support/adapters.py`.
+     - Routed both `/support/messages` and all channel workers through a single internal function `ingest_channel_message` in `backend/support/service.py`.
+  2. **Zero-Public-URL Transports for Local Workstations**:
+     - **Telegram (`TelegramAdapter`)**: HTTP long polling via `httpx` (`getUpdates` / `sendMessage`), no webhook server needed.
+     - **Email (`EmailAdapter`)**: Built-in Python `imaplib` 30-second inbox/folder polling for `UNSEEN` messages and `smtplib` threaded replies (`In-Reply-To`, `References`), zero extra packages needed.
+     - **Slack (`SlackAdapter`)**: Official `slack_sdk` Socket Mode (`xapp-` app token + `xoxb-` bot token), listening on allowed channels/DMs and replying in thread via `chat.postMessage`.
+     - **Microsoft Teams (`TeamsAdapterStub`)**: Retained as a clean stub documented in `docs/TEAMS_SETUP.md` (requires Azure Bot registration & public HTTPS webhook from IT admin).
+  3. **Safety, Deduplication, Allowlists & Human-Only Approval**:
+     - Added `sender_id`, `external_message_id`, `thread_id`, `thread_url`, `channel_metadata`, `is_flagged`, and `flag_reason` columns with an idempotent runtime migration and unique dedupe index `(channel, external_message_id)` on `support_tickets`.
+     - Enforced `.env` fail-closed allowlists (`TELEGRAM_ALLOWED_CHAT_IDS`, `EMAIL_ALLOWED_SENDERS`, `SLACK_ALLOWED_CHANNELS`), per-sender hourly rate limiting (`SUPPORT_RATE_LIMIT_PER_HOUR=10`), untrusted prompt-injection/destructive-SQL flagging (`detect_untrusted_injection`), and secret/SQL/traceback redaction on all outbound replies (`sanitize_channel_reply`).
+     - Kept the LangGraph `interrupt_before=["apply_fix"]` checkpoint and `approval_token` gate completely untouched; no inbound channel message can approve or apply fixes.
+  4. **Docs Exclusion from User RAG**:
+     - Added `is_user_policy_doc` in `pipelines/ingest_docs.py` (reused in `backend/main.py`) to exclude `CHANNELS_SETUP.md` and `TEAMS_SETUP.md` alongside `README.md` so setup documentation never pollutes user company RAG embeddings.
+  5. **Background Worker Lifecycle & UI**:
+     - Added `ChannelManager` (`backend/support/channel_manager.py`) started automatically via FastAPI `lifespan` AND runnable standalone via `make channels`.
+     - Exposed `GET /support/channels` and `POST /support/channels/{channel_id}/toggle`, paired with `ChannelStatusPanel.jsx`, `ChannelBadge.jsx`, thread links, and flagged alerts in the Support Desk UI.
+- **Consequences**: Users can connect real messaging accounts by dropping credentials into `.env` without modifying code or exposing public ports, while all security and HITL guarantees stay enforced.
+
+---
+
+### Decision 22: Remove Telegram Communication Channel
+- **Context**: User requested removing the Telegram communication channel from Support Desk while keeping Email (IMAP/SMTP), Slack (Socket Mode), Microsoft Teams (stub), Webhook, and Simulated channels active.
+- **Decision**:
+  - Deleted `backend/support/channels/telegram.py` and removed Telegram exports, factory branch, `ChannelManager` registration/polling branch, and `LIVE_EXTERNAL_CHANNELS` membership.
+  - Removed Telegram badge/select options from `frontend/components/ChannelBadge.jsx`, `frontend/components/SupportDeskView.jsx`, and adjusted `frontend/components/ChannelStatusPanel.jsx` to a 3-column grid for Email, Slack, and MS Teams.
+  - Removed Telegram env variables from `.env.example` and updated `tests/test_support_channels.py`, `docs/CHANNELS_SETUP.md`, `docs/TEAMS_SETUP.md`, `USAGE.md`, `DEMO_SCRIPT.md`, and `BLOCKED.md`.
+- **Consequences**: Support Desk exposes Email, Slack, and Microsoft Teams (stub) alongside Webhook and Simulated intake with zero remaining Telegram channel code or configuration.
+
+---
+
+### Decision 23: Stationery × Flight-Strip Frontend Redesign & Stack Upgrade
+- **Context**: The frontend needed a complete visual, structural, and interaction redesign into a distinctive Japanese stationery × air-traffic-control flight-strip workbench while preserving 100% of backend API calls, routes, and data flow, and upgrading frontend dependencies to current stable versions.
+- **Verified Package Versions (`npm view <pkg> version`)**:
+  - `next`: `16.4.6` (upgraded from `14.2.15`; Turbopack default bundler, async request APIs, `next lint` removed in favor of ESLint flat config)
+  - `react` & `react-dom`: `19.3.1` (upgraded from `18.3.1`; modern JSX transform, React 19 compatibility)
+  - `tailwindcss` & `@tailwindcss/postcss`: `4.3.5` (upgraded from `3.4.14`; CSS-first `@import "tailwindcss"` and `@theme` token mapping in `app/globals.css`)
+  - `motion`: `14.14.0` (replacing `framer-motion` import with `motion/react`)
+  - `lucide-react`: `1.81.0` (upgraded from `0.453.0`; thin `1.5px` stroke icons)
+  - `eslint-config-next`: `16.4.6` with `eslint@^9` (peer-compatible with `eslint-plugin-react@7.37.x`)
+  - `@playwright/test`: `1.65.1` & `@axe-core/playwright`: `4.14.1` (for E2E, WCAG AA axe scans, and multi-viewport/theme screenshot verification)
+- **Design & Platform Decisions**:
+  1. **Visual System**: Matte paper (`#F3EFE4`), raised (`#FBF9F2`), sunken (`#E8E2D2`), grid line (`#D3CCB9`), ink (`#16202F`), muted ink (`#55524A`), seal red (`#C8372D`), highlighter yellow (`#F2D45C`), sage (`#5E8C6A`), amber (`#B7791F`), and route tokens DATA (`#2F5D8A`), DOCS (`#A8741A`), BOTH (`#5E8C6A`), paired with a Night Shift dark theme (`#10151D` / `#171E29` / `#E9E4D6`). Foreground text on light paper mixes semantic accents with `--ink` via `color-mix()` where needed so every text element exceeds WCAG AA 4.5:1 contrast.
+  2. **Typography & Geometry**: `Shippori_Mincho`, `Zen_Kaku_Gothic_New`, and `JetBrains_Mono` via `next/font/google` with real system fallback stacks; `2px` max corner radius, `1px` hairline borders, `4%` CSS grid-paper background, hard offset paper-stack shadows (`2px 2px 0 var(--grid-line)`), and rotated hanko seal stamps.
+  3. **Server/Client Split**: `app/layout.jsx` and `app/page.jsx` remain Server Components; interactive workbench state lives in `components/WorkbenchApp.jsx` and modular components (`Spine`, `Strip`, `StripBoard`, `Stamp`, `LogEntry`, `Margin`, `Timeline`, `SqlBlock`, `DataTable`, `QualityBars`, `IndexCard`, `ChannelStatus`, `CommandPalette`, `KeyboardHelpModal`, `EmptyState`, `ErrorState`, `Skeleton`).
+  4. **SSE Streaming & Security**: Added `frontend/lib/sseStream.js` (full `text/event-stream` parser with reconnect backoff, `Last-Event-ID`, `AbortController`, and JSON fallback for `POST /chat`) plus server-side `frontend/app/api/chat/stream/route.js` and security headers in `frontend/next.config.js`.
+- **Consequences**: Zero TypeScript files, minimal audited frontend dependencies, modern CSS platform features (`@container`, `:has()`, `document.startViewTransition`, `color-mix()`, logical properties, `prefers-reduced-motion`), and full backward compatibility with all FastAPI endpoints.

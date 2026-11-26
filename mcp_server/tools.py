@@ -267,6 +267,25 @@ def get_schema_metadata() -> Dict[str, Any]:
     try:
         conn = psycopg2.connect(readonly_url)
         cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Check schema_metadata table first
+        try:
+            cur.execute("SELECT dataset_name, table_name, row_count, column_count, columns_info FROM schema_metadata ORDER BY id DESC LIMIT 1;")
+            sm_row = cur.fetchone()
+            if sm_row and sm_row.get("columns_info"):
+                cols = sm_row["columns_info"]
+                cur.close()
+                return {
+                    "dataset_name": sm_row.get("dataset_name"),
+                    "table_name": sm_row.get("table_name", "sales"),
+                    "row_count": sm_row.get("row_count", 0),
+                    "columns": cols,
+                    "numeric_columns": [c["name"] for c in cols if c.get("is_numeric")],
+                    "categorical_columns": [c["name"] for c in cols if c.get("is_categorical")]
+                }
+        except Exception:
+            pass
+
         cur.execute("""
             SELECT column_name, data_type 
             FROM information_schema.columns 

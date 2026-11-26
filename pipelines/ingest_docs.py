@@ -26,24 +26,54 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("RAGIngestion")
 
 
-def parse_markdown_sections(file_path: str) -> List[Dict[str, str]]:
+def extract_pdf_sections(file_path: str) -> List[Dict[str, str]]:
+    """Extracts text content and section headers from a PDF file."""
+    filename = os.path.basename(file_path)
+    try:
+        from pypdf import PdfReader
+        reader = PdfReader(file_path)
+        sections = []
+        default_title = os.path.splitext(filename)[0].replace("_", " ").title()
+        for i, page in enumerate(reader.pages):
+            text = page.extract_text() or ""
+            text = text.strip()
+            if text:
+                first_line = text.split("\n")[0].strip()
+                title = first_line[:80] if len(first_line) > 3 else f"{default_title} - Page {i+1}"
+                title = re.sub(r"^\d+[\.\)]\s*", "", title)
+                sections.append({
+                    "title": title,
+                    "text": text
+                })
+        return sections
+    except Exception as e:
+        logger.warning(f"Could not extract PDF {file_path}: {e}")
+        return []
+
+def parse_document_sections(file_path: str) -> List[Dict[str, str]]:
     """
-    Parses a markdown document into semantic sections based on headers.
-    Returns list of dicts with title and text content.
+    Parses a markdown, plain text, or PDF document into semantic sections.
+    Titles are derived directly from the actual headings or filename, never templated.
     """
     filename = os.path.basename(file_path)
-    with open(file_path, "r", encoding="utf-8") as f:
+    ext = os.path.splitext(filename)[1].lower()
+    
+    if ext == ".pdf":
+        return extract_pdf_sections(file_path)
+        
+    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
         content = f.read()
 
     # Split document by markdown headers (## or #)
     lines = content.split("\n")
     sections = []
     
-    current_title = filename.replace(".md", "").replace("_", " ").title()
+    default_title = os.path.splitext(filename)[0].replace("_", " ").title()
+    current_title = default_title
     current_lines = []
     
     for line in lines:
-        if line.startswith("# ") or line.startswith("## "):
+        if line.startswith("# ") or line.startswith("## ") or line.startswith("### "):
             if current_lines:
                 sec_text = "\n".join(current_lines).strip()
                 if sec_text:
@@ -52,7 +82,9 @@ def parse_markdown_sections(file_path: str) -> List[Dict[str, str]]:
                         "text": sec_text
                     })
                 current_lines = []
-            current_title = line.lstrip("#").strip()
+            raw_heading = line.lstrip("#").strip()
+            # Clean heading: remove leading numbers like '1. ' if present
+            current_title = re.sub(r"^\d+[\.\)]\s*", "", raw_heading)
         else:
             current_lines.append(line)
             
@@ -65,6 +97,10 @@ def parse_markdown_sections(file_path: str) -> List[Dict[str, str]]:
             })
             
     return sections
+
+# Backwards compatibility alias
+parse_markdown_sections = parse_document_sections
+
 
 def chunk_sections(sections: List[Dict[str, str]], filename: str, max_chunk_chars: int = 600, overlap: int = 60) -> List[Dict[str, Any]]:
     """
@@ -83,7 +119,9 @@ def chunk_sections(sections: List[Dict[str, str]], filename: str, max_chunk_char
                 "source_file": filename,
                 "title": title,
                 "content": f"{title}\n{text}",
-                "chunk_index": chunk_idx
+                "text": f"{title}\n{text}",
+                "chunk_index": chunk_idx,
+                "chunk_id": f"{filename}_{chunk_idx}"
             })
             chunk_idx += 1
         else:
@@ -103,7 +141,9 @@ def chunk_sections(sections: List[Dict[str, str]], filename: str, max_chunk_char
                         "source_file": filename,
                         "title": title,
                         "content": f"{title}\n{sub_text}",
-                        "chunk_index": chunk_idx
+                        "text": f"{title}\n{sub_text}",
+                        "chunk_index": chunk_idx,
+                        "chunk_id": f"{filename}_{chunk_idx}"
                     })
                     chunk_idx += 1
                 start = end - overlap if end < len(text) else end
@@ -115,23 +155,41 @@ def chunk_sections(sections: List[Dict[str, str]], filename: str, max_chunk_char
         
     return chunks
 
+SYSTEM_DOCS_IGNORED = {"channels_setup.md", "teams_setup.md"}
+
+
+def is_user_policy_doc(filename: str) -> bool:
+    """Returns True only for user policy/SOP files, excluding repo setup guides and READMEs."""
+    lower = os.path.basename(filename).lower()
+    if not lower.endswith((".md", ".txt", ".pdf")):
+        return False
+    if lower.startswith("readme") or lower in SYSTEM_DOCS_IGNORED:
+        return False
+    return True
+
+
 def ingest_all_docs(docs_dir: str = "docs") -> int:
     """
-    Main ingestion execution function. Dynamically discovers all policy and documentation files (.md, .txt)
+    Main ingestion execution function. Dynamically discovers all policy and documentation files (.md, .txt, .pdf)
     in docs_dir, parses sections, computes vector embeddings, and stores them in PostgreSQL pgvector.
     """
     logger.info(f"Scanning for documentation files in: {docs_dir}")
     
-    # Discover all documentation files dynamically in docs_dir
-    doc_paths = sorted(glob.glob(os.path.join(docs_dir, "*.md")) + glob.glob(os.path.join(docs_dir, "*.txt")))
+    # Discover all user documentation files (.md, .txt, .pdf), ignoring repo/setup docs
+    patterns = [os.path.join(docs_dir, "*.md"), os.path.join(docs_dir, "*.txt"), os.path.join(docs_dir, "*.pdf")]
+    all_files = []
+    for p in patterns:
+        all_files.extend(glob.glob(p))
+    doc_paths = sorted([f for f in all_files if is_user_policy_doc(f)])
+    
     if not doc_paths:
-        logger.warning(f"No .md or .txt files discovered in {docs_dir}.")
+        logger.warning(f"No user documents discovered in {docs_dir}.")
         return 0
         
     all_chunks = []
     for doc_path in doc_paths:
         doc_name = os.path.basename(doc_path)
-        sections = parse_markdown_sections(doc_path)
+        sections = parse_document_sections(doc_path)
         doc_chunks = chunk_sections(sections, doc_name)
         all_chunks.extend(doc_chunks)
         logger.info(f"Parsed {len(doc_chunks)} chunks from {doc_name}")

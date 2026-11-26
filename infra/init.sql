@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS support_tickets (
     id VARCHAR(64) PRIMARY KEY,
     client_name VARCHAR(128) NOT NULL DEFAULT 'Client User',
     client_email VARCHAR(128) NOT NULL DEFAULT 'client@example.com',
+    sender_id VARCHAR(128),
     channel VARCHAR(64) NOT NULL DEFAULT 'webhook',
     message TEXT NOT NULL,
     status VARCHAR(32) NOT NULL DEFAULT 'new',
@@ -107,10 +108,18 @@ CREATE TABLE IF NOT EXISTS support_tickets (
     test_results JSONB DEFAULT '{}'::jsonb,
     approval_token VARCHAR(128),
     reply_message TEXT,
+    external_message_id VARCHAR(255),
+    thread_id VARCHAR(255),
+    thread_url TEXT,
+    channel_metadata JSONB DEFAULT '{}'::jsonb,
+    is_flagged BOOLEAN NOT NULL DEFAULT FALSE,
+    flag_reason TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_support_tickets_status ON support_tickets(status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_support_tickets_channel_ext_id ON support_tickets(channel, external_message_id) WHERE external_message_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_support_tickets_sender_rate ON support_tickets(channel, sender_id, created_at);
 
 CREATE TABLE IF NOT EXISTS audit_log (
     id SERIAL PRIMARY KEY,
@@ -127,7 +136,21 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_ticket_id ON audit_log(ticket_id);
 CREATE TABLE IF NOT EXISTS sales_sandbox (LIKE sales INCLUDING ALL);
 
 -- -----------------------------------------------------------------------------
--- 6. Dedicated Read-Only Security Role ('sales_readonly')
+-- 6. Schema Metadata Table (stores dynamic schema & data dictionary)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS schema_metadata (
+    id SERIAL PRIMARY KEY,
+    dataset_name VARCHAR(255) NOT NULL,
+    table_name VARCHAR(255) NOT NULL DEFAULT 'sales',
+    row_count INT NOT NULL DEFAULT 0,
+    column_count INT NOT NULL DEFAULT 0,
+    columns_info JSONB NOT NULL DEFAULT '[]'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_schema_metadata_dataset ON schema_metadata(dataset_name);
+
+-- -----------------------------------------------------------------------------
+-- 7. Dedicated Read-Only Security Role ('sales_readonly')
 -- -----------------------------------------------------------------------------
 -- Create the role safely if it does not already exist
 DO
@@ -147,10 +170,14 @@ GRANT USAGE ON SCHEMA public TO sales_readonly;
 
 -- Grant SELECT on tables to sales_readonly
 GRANT SELECT ON TABLE sales TO sales_readonly;
+GRANT SELECT ON TABLE sales_sandbox TO sales_readonly;
 GRANT SELECT ON TABLE document_embeddings TO sales_readonly;
 GRANT SELECT ON TABLE quality_reports TO sales_readonly;
 GRANT SELECT ON TABLE conversations TO sales_readonly;
 GRANT SELECT ON TABLE messages TO sales_readonly;
+GRANT SELECT ON TABLE support_tickets TO sales_readonly;
+GRANT SELECT ON TABLE audit_log TO sales_readonly;
+GRANT SELECT ON TABLE schema_metadata TO sales_readonly;
 
 -- Explicitly ensure no mutation permissions exist
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON ALL TABLES IN SCHEMA public FROM sales_readonly;

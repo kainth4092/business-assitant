@@ -101,7 +101,8 @@ def search_documents(query: str, top_k: int = 3, min_similarity: float = 0.0) ->
 
 def list_indexed_sources() -> List[Dict[str, Any]]:
     """
-    Returns list of indexed documents and their chunk counts.
+    Returns list of indexed documents, their chunk counts, titles, and real content summaries.
+    Titles and summaries are derived directly from the real document content (chunk_index = 0).
     """
     conn = None
     try:
@@ -109,16 +110,41 @@ def list_indexed_sources() -> List[Dict[str, Any]]:
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         cursor.execute("""
             SELECT 
-                source_file,
+                d.source_file,
                 COUNT(*) as total_chunks,
-                MIN(title) as sample_title
-            FROM document_embeddings
-            GROUP BY source_file
-            ORDER BY source_file ASC;
+                c.title as sample_title,
+                c.content as first_chunk_content
+            FROM document_embeddings d
+            LEFT JOIN (
+                SELECT DISTINCT ON (source_file) source_file, title, content
+                FROM document_embeddings
+                ORDER BY source_file, chunk_index ASC
+            ) c ON d.source_file = c.source_file
+            GROUP BY d.source_file, c.title, c.content
+            ORDER BY d.source_file ASC;
         """)
         rows = cursor.fetchall()
         cursor.close()
-        return [dict(r) for r in rows]
+        
+        result = []
+        for r in rows:
+            # Clean first chunk content into a concise excerpt
+            content = r.get("first_chunk_content") or ""
+            # Strip heading if content starts with title
+            lines = [l.strip() for l in content.split("\n") if l.strip()]
+            summary_lines = [l for l in lines if not l.startswith("#")]
+            summary_text = " ".join(summary_lines) if summary_lines else content
+            summary_snippet = summary_text[:180].strip()
+            if len(summary_text) > 180:
+                summary_snippet += "..."
+
+            result.append({
+                "source_file": r["source_file"],
+                "total_chunks": r["total_chunks"],
+                "sample_title": r.get("sample_title") or r["source_file"],
+                "sample_summary": summary_snippet or "No text summary available."
+            })
+        return result
     except Exception as e:
         logger.error(f"Error listing indexed sources: {e}")
         return []

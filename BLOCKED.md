@@ -1,34 +1,24 @@
-# System Readiness & User Action Items (BLOCKED.md)
+# System Readiness & User Action Items (`BLOCKED.md`)
 
-## Status: 100% Implemented & Verified Out-Of-The-Box
+## Core Platform Status: Operational & Verified
 
-All components across the entire tech stack are fully built, tested, and running:
-- **PySpark Data Pipeline**: Cleaned, standardized, and loaded 1,500 sales rows into PostgreSQL.
-- **pgvector Vector Store**: Ingested and indexed 21 company policy chunks.
-- **MCP Server Tools**: `query_sales`, `search_docs`, and `get_data_quality_report` verified.
-- **LangGraph Agent**: Router, Agent, Answer, and Check nodes verified with a 2-retry cap.
-- **FastAPI Backend**: Running and tested on `http://localhost:8000`.
-- **Next.js Frontend**: Built and tested with zero compilation errors (`npm run build`).
-- **Automated Tests**: 35 of 35 pytest unit and integration tests passing.
+- **PostgreSQL + pgvector (`business_assistant`)**, **FastAPI Backend (`:8000`)**, **Next.js Frontend (`:3000`)**, **PySpark Universal Pipeline**, **Gemini 3.5 Flash Lite + Gemini Embedding 2 (768-D)**, and **Support Desk Channels Architecture** are implemented and tested (offline/fake payloads in pytest).
 
 ---
 
-## Action Item for User: Add Gemini API Key
+## Blocked / Pending User Configuration for Live External Support Channels
 
-As instructed, API keys were not hardcoded. The application currently runs with an intelligent deterministic fallback that allows all routing, SQL queries, RAG searches, and UI interactions to work offline.
+Real channel listeners are implemented and ready to start automatically with the backend (or via `make channels`), **but cannot connect to live external services yet because credentials are not configured in `.env`**:
 
-To enable live Google Gemini LLM generation and live Google Gemini embeddings:
+| Channel | Current UI Status | Missing `.env` Credentials / Action Needed | Setup Guide |
+| :--- | :--- | :--- | :--- |
+| **Email (IMAP/SMTP)** | `Not configured` | Set `IMAP_HOST`, `IMAP_USER`, `IMAP_APP_PASSWORD` (Gmail App Password), `SMTP_HOST`, `SMTP_PORT`, and `EMAIL_ALLOWED_SENDERS` in `.env` | [docs/CHANNELS_SETUP.md](file:///home/kanish/Documents/business-assistant/docs/CHANNELS_SETUP.md) |
+| **Slack (Socket Mode)** | `Not configured` | Set `SLACK_BOT_TOKEN` (`xoxb-...`), `SLACK_APP_TOKEN` (`xapp-...`), and `SLACK_ALLOWED_CHANNELS` in `.env` | [docs/CHANNELS_SETUP.md](file:///home/kanish/Documents/business-assistant/docs/CHANNELS_SETUP.md) |
+| **Microsoft Teams** | `Not configured` (Stub) | Requires Microsoft 365 / Azure tenant admin to register an Azure Bot, approve Entra ID permissions, and provide a public HTTPS messaging endpoint | [docs/TEAMS_SETUP.md](file:///home/kanish/Documents/business-assistant/docs/TEAMS_SETUP.md) |
 
-1. Open your browser and navigate to **Google AI Studio**:
-   [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
-2. Sign in with your Google account and click **"Create API Key"** (free tier available).
-3. Open the `.env` file in the project root:
-   ```bash
-   nano .env
-   # or edit with your preferred editor
-   ```
-4. Replace the placeholder with your actual key:
-   ```ini
-   GOOGLE_API_KEY=AIzaSyYourActualKeyHere
-   ```
-5. Save the file. The FastAPI backend automatically loads the key and connects to Gemini models (`gemini-1.5-flash` and `text-embedding-004`).
+---
+
+## Optional Gemini API Key Note
+
+- `.env` already contains an active `GOOGLE_API_KEY` configured with `LLM_MODEL=gemini-3.5-flash-lite` and `EMBEDDING_MODEL=gemini-embedding-2`.
+- Keep `.env` strictly untracked (ignored by `.gitignore`) so credentials are never committed to Git.

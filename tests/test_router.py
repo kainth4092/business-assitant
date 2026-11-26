@@ -31,3 +31,22 @@ def test_router_node_state_update():
     result = router_node(state)
     assert result["route"] == "data"
     assert result["retry_count"] == 0
+
+
+def test_router_node_honors_explicit_route_override():
+    for forced in ("data", "docs", "both"):
+        res = router_node({
+            "user_query": "General inquiry",
+            "route": forced,
+            "messages": [],
+            "retry_count": 0,
+        })
+        assert res["route"] == forced
+
+    auto_res = router_node({
+        "user_query": "What are the top 5 item types by total sales?",
+        "route": "auto",
+        "messages": [],
+        "retry_count": 0,
+    })
+    assert auto_res["route"] == "data"

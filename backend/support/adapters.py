@@ -1,111 +1,151 @@
 """
-Channel Adapters for Support Desk:
-Provides an extensible adapter architecture supporting Webhooks, Slack, and Microsoft Teams.
+Channel Adapter Abstraction & Factory for Support Desk:
+Defines the common normalized inbound/outbound contract shared by all channels
+(Email, Slack, Microsoft Teams stub, Webhook, and Simulated).
 """
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field, asdict
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 import logging
 
+from backend.support.security import sanitize_channel_reply
+
 logger = logging.getLogger("support_adapters")
 
+
+@dataclass
+class NormalizedChannelMessage:
+    """Normalized ticket input contract produced by every channel adapter."""
+    sender_name: str
+    sender_id: str
+    channel: str
+    text: str
+    timestamp: str
+    thread_id: Optional[str] = None
+    sender_email: Optional[str] = None
+    external_message_id: Optional[str] = None
+    thread_url: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
 class ChannelAdapter(ABC):
-    """Abstract Base Class for Support Channel Adapters."""
+    """Abstract Base Class for Support Desk communication channel adapters."""
+
+    channel_name: str = "base"
+
+    def is_configured(self) -> bool:
+        """Returns True if required environment credentials are present."""
+        return False
+
+    def is_sender_allowed(self, message: NormalizedChannelMessage) -> bool:
+        """Checks whether the sender/chat/channel is permitted by .env allowlists."""
+        return True
 
     @abstractmethod
-    def parse_incoming(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Parses channel-specific webhook payload into normalized support message."""
+    def parse_incoming(self, payload: Dict[str, Any]) -> NormalizedChannelMessage:
+        """Parses a channel-specific payload into a NormalizedChannelMessage."""
         pass
 
     @abstractmethod
-    def send_notification(self, destination: str, text: str, metadata: Optional[Dict[str, Any]] = None) -> bool:
-        """Dispatches outbound response or notification back to the client channel."""
+    def send_reply(
+        self,
+        thread_id: Optional[str],
+        text: str,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Sends a sanitized status or resolution reply back to the original thread."""
         pass
+
+    def send_notification(
+        self,
+        destination: str,
+        text: str,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Backwards-compatible alias delegating outbound notifications to send_reply."""
+        return self.send_reply(thread_id=destination, text=text, metadata=metadata)
 
 
 class WebhookAdapter(ChannelAdapter):
-    """Standard HTTP JSON Webhook adapter for web applications and client portals."""
+    """Standard HTTP JSON Webhook adapter for API integrations."""
 
-    def parse_incoming(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        return {
-            "client_name": payload.get("client_name") or payload.get("sender_name") or "Client User",
-            "client_email": payload.get("client_email") or payload.get("email") or "client@example.com",
-            "channel": "webhook",
-            "message": payload.get("message") or payload.get("text") or payload.get("query", "").strip(),
-            "metadata": payload.get("metadata", {})
-        }
+    channel_name = "webhook"
 
-    def send_notification(self, destination: str, text: str, metadata: Optional[Dict[str, Any]] = None) -> bool:
-        logger.info(f"[WebhookAdapter] Dispatched notification to {destination}: {text[:80]}...")
+    def is_configured(self) -> bool:
+        return True
+
+    def parse_incoming(self, payload: Dict[str, Any]) -> NormalizedChannelMessage:
+        sender_name = (
+            payload.get("client_name")
+            or payload.get("sender_name")
+            or payload.get("sender")
+            or "Client User"
+        )
+        sender_email = (
+            payload.get("client_email")
+            or payload.get("sender_email")
+            or payload.get("email")
+            or "client@example.com"
+        )
+        text = (
+            payload.get("message")
+            or payload.get("text")
+            or payload.get("query")
+            or ""
+        ).strip()
+        channel = (payload.get("channel") or self.channel_name).lower()
+        return NormalizedChannelMessage(
+            sender_name=str(sender_name),
+            sender_id=str(payload.get("sender_id") or sender_email or sender_name),
+            sender_email=str(sender_email),
+            channel=channel,
+            text=text,
+            timestamp=payload.get("timestamp") or datetime.now(timezone.utc).isoformat(),
+            thread_id=payload.get("thread_id"),
+            external_message_id=payload.get("external_message_id"),
+            thread_url=payload.get("thread_url"),
+            metadata=payload.get("metadata") or {},
+        )
+
+    def send_reply(
+        self,
+        thread_id: Optional[str],
+        text: str,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        safe_text = sanitize_channel_reply(text)
+        logger.info(f"[WebhookAdapter] Reply recorded for thread {thread_id}: {safe_text[:80]}")
         return True
 
 
-class SlackAdapterStub(ChannelAdapter):
-    """
-    Slack Event API & Slash Command Adapter Stub.
-    
-    Enterprise Configuration Reference:
-    - Inbound Endpoint: POST /support/messages?channel=slack
-    - Header Verification: X-Slack-Signature & X-Slack-Request-Timestamp
-    - Payload format: urlencoded form (command, text, user_name, response_url)
-    """
+class SimulatedAdapter(WebhookAdapter):
+    """Adapter for operator-entered test incidents from the Support Desk UI modal."""
 
-    def parse_incoming(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        # Normalizes Slack slash command or message action payload
-        event = payload.get("event", {})
-        user = payload.get("user_name") or event.get("user") or "Slack User"
-        text = payload.get("text") or event.get("text", "")
-        response_url = payload.get("response_url")
-
-        return {
-            "client_name": user,
-            "client_email": f"{user.lower().replace(' ', '.')}@slack-tenant.internal",
-            "channel": "slack",
-            "message": text.strip(),
-            "metadata": {"response_url": response_url, "channel_id": payload.get("channel_id")}
-        }
-
-    def send_notification(self, destination: str, text: str, metadata: Optional[Dict[str, Any]] = None) -> bool:
-        # In production: POST to metadata['response_url'] or chat.postMessage with Block Kit
-        logger.info(f"[SlackAdapterStub] Simulated Slack BlockKit delivery to {destination}: {text[:80]}...")
-        return True
-
-
-class TeamsAdapterStub(ChannelAdapter):
-    """
-    Microsoft Teams Bot Framework Activity Adapter Stub.
-    
-    Enterprise Configuration Reference:
-    - Inbound Endpoint: POST /support/messages?channel=teams
-    - Header Verification: Authorization: Bearer <JWT from login.microsoftonline.com>
-    - Payload format: JSON Activity schema (type: 'message', from: {id, name}, text)
-    """
-
-    def parse_incoming(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        sender = payload.get("from", {})
-        user_name = sender.get("name", "Teams Member")
-        text = payload.get("text", "")
-        service_url = payload.get("serviceUrl")
-
-        return {
-            "client_name": user_name,
-            "client_email": f"{user_name.lower().replace(' ', '.')}@msteams.internal",
-            "channel": "teams",
-            "message": text.strip(),
-            "metadata": {"service_url": service_url, "conversation_id": payload.get("conversation", {}).get("id")}
-        }
-
-    def send_notification(self, destination: str, text: str, metadata: Optional[Dict[str, Any]] = None) -> bool:
-        # In production: POST AdaptiveCard JSON to Bot Framework serviceUrl
-        logger.info(f"[TeamsAdapterStub] Simulated MS Teams AdaptiveCard delivery to {destination}: {text[:80]}...")
-        return True
+    channel_name = "simulated"
 
 
 def get_channel_adapter(channel: str = "webhook") -> ChannelAdapter:
-    """Factory helper to obtain the corresponding channel adapter."""
-    ch = (channel or "webhook").lower()
+    """Factory helper returning the adapter corresponding to a channel identifier."""
+    ch = (channel or "webhook").strip().lower()
+    if ch == "email":
+        from backend.support.channels.email import EmailAdapter
+        return EmailAdapter()
     if ch == "slack":
-        return SlackAdapterStub()
+        from backend.support.channels.slack import SlackAdapter
+        return SlackAdapter()
     if ch in ("teams", "msteams"):
+        from backend.support.channels.teams import TeamsAdapterStub
         return TeamsAdapterStub()
+    if ch == "simulated":
+        return SimulatedAdapter()
     return WebhookAdapter()
+
+
+# Re-export channel adapters for backwards-compatible imports
+from backend.support.channels.slack import SlackAdapterStub  # noqa: E402, F401
+from backend.support.channels.teams import TeamsAdapterStub  # noqa: E402, F401

@@ -1,186 +1,119 @@
-# Design System & Technical Notes: Business Assistant Workbench
+# Design System & Architecture Notes: Business Assistant
 
-## 1. Design Direction & Product Philosophy
+## 1. Design Concept: Japanese Stationery × Air-Traffic-Control Flight Strips
 
-The **Business Assistant** interface is designed as an **editorial analyst workbench** (drawing inspiration from tools like *Linear*, *Notion*, and *Observable*), departing completely from generic AI chatbot landing page templates.
+Business Assistant is a dense, keyboard-first AI operations control room designed for data analysts, engineers, and engineering managers who work in the tool all day.
 
-### Core Principles
-- **Editorial & Precise**: Dense, calm, trustworthy presentation prioritizing data readability, contrast, and verification over decorative flair.
-- **Audit-First**: Transparent evidence and execution traces are the primary visual feature, proving that the agent uses verifiable SQL queries and pgvector document citations rather than hallucinating.
-- **Log / Document Layout**: The conversation flow avoids bubble chat avatars and instead formats questions as crisp prompt entries (`YOU · Q_01`) and answers as editorial prose with inline citation chips (`[1]`, `[2]`).
-- **No Generative AI Cliches**: Zero purple/pink gradients, neon glowing orbs, blurred backdrop blobs, bubbly rounded-2xl cards, or emojis. Every icon uses `lucide-react` with a clean `1.75px-2px` stroke.
+It deliberately combines two physical reference worlds:
+1. **Stationery world (MUJI / Hobonichi notebooks)**: warm matte paper (`#F3EFE4`), raised ivory sheet (`#FBF9F2`), recessed ledger wells (`#E8E2D2`), subtle 4% opacity ruled grid paper (`24px` square grid), ink (`#16202F`), muted ink (`#55524A`), red hanko seal stamps (`#C8372D`), and yellow highlighter marker strokes (`#F2D45C`).
+2. **Flight-strip world**: every support ticket and agent execution is treated as a physical strip on a control board with fixed fields (`ID`, `channel`, `sender`, `category`, `state`, `age`), monospaced callsigns, crisp `1px` hairline borders, `2px` max corners, hard offset paper-stack shadows (`2px 2px 0`), and rotated seal stamps (`APPROVED`, `REJECTED`, `NEEDS REVIEW`, `APPLIED`, `FLAGGED`).
+
+### Hard Prohibitions
+- No purple/pink gradients or gradient text.
+- No glassmorphism, backdrop blur, glowing orbs, sparkle icons, or emojis.
+- No soft blurred card shadows or `rounded-xl` / `rounded-2xl` containers.
+- No Inter or Arial visual identity; no marketing hero copy.
 
 ---
 
-## 2. Color System & Semantic Tokens
+## 2. Color Tokens (CSS Custom Properties)
 
-All styling is built on semantic CSS custom properties defined in `frontend/app/globals.css` and mapped in `frontend/tailwind.config.js`.
+Defined in [globals.css](file:///home/kanish/Documents/business-assistant/frontend/app/globals.css) and mapped in [tailwind.config.js](file:///home/kanish/Documents/business-assistant/frontend/tailwind.config.js).
 
-### Palette Specifications
-
-| Token Name | Light Theme ("Warm Paper") | Dark Theme ("Slate Editorial") | Usage / Contrast |
+| Token | Light ("Stationery Day Shift") | Dark ("Night Shift") | Role |
 | :--- | :--- | :--- | :--- |
-| `--bg-page` | `#F6F1E7` (Warm paper) | `#12110F` (Deep carbon ink) | Main document background with 3% dot texture |
-| `--bg-surface` | `#FFFDF8` (Warm white surface) | `#1B1A17` (Subtle dark surface) | Cards, sidebars, panels, inputs |
-| `--bg-sunken` | `#EDE6D8` (Sand stone fill) | `#0D0C0B` (Sunken well fill) | Badges, code containers, table headers |
-| `--text-ink` | `#1B1A17` (Near-black ink) | `#F3EEE2` (Off-white parchment) | Headings, primary body prose (AAA > 14:1) |
-| `--text-muted` | `#5E584B` (Dark olive charcoal) | `#B3AC9B` (Warm neutral gray) | Captions, metadata, labels (**AA > 5.27:1**, never faint) |
-| `--border-default` | `#D9D0BC` (1px warm gray border) | `#33302A` (1px dark steel border)| Structural 1px separation lines |
-| `--border-strong` | `#BFB59E` (Darker separation line) | `#47433B` (Stronger dark border) | Active states, hover borders |
-| `--accent` | `#0B6E64` (Deep institutional teal)| `#3FBFAE` (Luminous teal) | Primary button, active tab bar, focus rings |
+| `--bg-paper` | `#F3EFE4` | `#10151D` | Main grid-paper canvas |
+| `--bg-raised` | `#FBF9F2` | `#171E29` | Raised sheets, strips, spine, margin |
+| `--bg-sunken` | `#E8E2D2` | `#0B0F15` | Wells, table headers, board bays |
+| `--grid-line` | `#D3CCB9` | `#283344` | 1px hairline borders & offset stack shadow |
+| `--ink` | `#16202F` | `#E9E4D6` | Primary text & ink actions |
+| `--muted` | `#55524A` | `#A9A292` | Secondary labels (>= 4.5:1 AA contrast) |
+| `--seal-red` | `#C8372D` | `#D6493E` | Hanko seal stamps, approvals, destructive actions |
+| `--highlighter` | `#F2D45C` | `#E6C74C` | Active step stroke & selected marker highlight |
+| `--sage` | `#5E8C6A` | `#6CA27A` | Success / groundedness / BOTH route |
+| `--amber` | `#B7791F` | `#D99B38` | Warning / review state |
+| `--route-data` | `#2F5D8A` | `#5D96CC` | DATA (SQL) route accent (paired with text label) |
+| `--route-docs` | `#A8741A` | `#D99B38` | DOCS (RAG) route accent (paired with text label) |
+| `--route-both` | `#5E8C6A` | `#6CA27A` | BOTH (SQL + DOCS) route accent (paired with text label) |
 
-### Three Route Colors (Used Consistently)
-
-| Route | Primary Color | Soft Tinted Background | Border Accent | Application |
-| :--- | :--- | :--- | :--- | :--- |
-| **DATA** | `#0B6E64` (Dark: `#3FBFAE`) | `rgba(11, 110, 100, 0.11)` | `rgba(11, 110, 100, 0.35)` | SQL queries, sales tables, data starters |
-| **DOCS** | `#B45309` (Dark: `#F59E0B`) | `rgba(180, 83, 9, 0.11)` | `rgba(180, 83, 9, 0.35)` | pgvector retrieval, policies, doc starters |
-| **BOTH** | `#3B3F8F` (Dark: `#818CF8`) | `rgba(59, 63, 143, 0.11)` | `rgba(59, 63, 143, 0.35)` | Hybrid SQL + RAG questions, synthesis |
-
-### Semantic Tokens
-- **Success**: `#15803D` (Light) / `#4ADE80` (Dark) with 10% tinted background.
-- **Warning**: `#B45309` (Light) / `#FBBF24` (Dark) with 10% tinted background.
-- **Error**: `#B91C1C` (Light) / `#F87171` (Dark) with 10% tinted background.
+All foreground text uses `color-mix(in srgb, <accent> 64-88%, var(--ink))` (`--*-ink` tokens) on light paper so small text strictly clears WCAG AA 4.5:1 contrast while preserving the exact palette hue on borders, rules, and bars.
 
 ---
 
-## 3. Typography Hierarchy
+## 3. Typography & Type Scale
 
-Fonts are loaded locally via `next/font/google` with zero layout shift:
-
-1. **Headings & App Identity (`--font-serif`)**: `Newsreader` (weights: 400, 500, 600, style: normal & italic).
-   - Page Title: `30-34px` (`font-serif font-semibold text-title`).
-   - Card Titles & Section Headings: `16-18px font-bold`.
-2. **Interface & Prose (`--font-sans`)**: `IBM Plex Sans` (weights: 400, 500, 600).
-   - Section Labels: `12px` uppercase with `0.08em` letter-spacing in `#5E584B` (WCAG AA).
-   - Body Text: `15px / 1.6` line-height for comfortable editorial reading.
-   - Tag Badges: `11.5px font-bold` with `0.02em` tracking.
-3. **Data, Code, & Tool Traces (`--font-mono`)**: `IBM Plex Mono` (weights: 400, 500, 600, tabular figures).
-   - Used for SQL query blocks, row counts, cosine distance metrics, file paths (`docs/*.md`), and tool execution logs.
-
----
-
-## 4. Spacing, Geometry & Visual Depth
-
-- **Spacing Grid**: Strict 4px / 8px scale (`gap-1` = 4px, `gap-2` = 8px, `gap-3` = 12px, `gap-4` = 16px, `p-6` = 24px).
-- **Border Radii**: Restrained radii (`rounded-sm`: 4px, `rounded`: 6px, `rounded-md`: 8px).
-- **Depth**: True 1px borders combined with layered surfaces (`bg-page` -> `bg-surface` -> `bg-sunken`) and subtle shadow levels:
-  - `shadow-card`: `0 1px 2px rgba(0,0,0,.05), 0 8px 24px -12px rgba(0,0,0,.12)`
-  - `shadow-composer`: `0 2px 4px rgba(0,0,0,.04), 0 12px 32px -12px rgba(0,0,0,.16)`
-- **Background Texture**: 3.5% opacity dot-grid radial pattern (`radial-gradient(var(--dot-pattern) 1px, transparent 1px)`) sized at 20px x 20px.
+Loaded locally via `next/font/google` in [layout.jsx](file:///home/kanish/Documents/business-assistant/frontend/app/layout.jsx) with system fallback stacks:
+- **Headings & Serif Log Answers (`--font-serif`)**: `Shippori Mincho` (weights `400–800`), fallback `"Hiragino Mincho ProN", Georgia, serif`.
+  - Page title: `24px–30px` (`text-2xl sm:text-3xl font-semibold`)
+  - Log entry / question heading: `18px–20px` (`text-lg sm:text-xl font-semibold`)
+  - Answer prose: `15.5px / 1.7` line-height
+- **UI Body (`--font-sans`)**: `Zen Kaku Gothic New` (weights `400, 500, 700`), fallback `"Hiragino Sans", system-ui, sans-serif`.
+  - Standard UI controls, descriptions, and summaries: `12px–14px`
+- **IDs, SQL, Numbers, Tags & Timestamps (`--font-mono`)**: `JetBrains Mono` (weights `400–700`) with `font-variant-numeric: tabular-nums`.
+  - Metrics: `20px–30px` (`text-xl sm:text-3xl font-bold tabular-mono`)
+  - Field labels & stamps: `10px–11px` uppercase (`tracking-wider`)
+  - SQL & diffs: `11.5px–12px`
 
 ---
 
-## 5. Motion Rules & Timing
+## 4. Spacing, Geometry & Layout Rules
 
-All animations are lightweight, subtle, and respect `prefers-reduced-motion`:
-- **Staggered Page Load**: Hero, stat tiles, and starter rows animate with 60ms stagger, 300ms duration, and 8px translate (`animate-fade-up`).
-- **Interactive Hovers**: Starter row lifts 2px (`hover:-translate-y-0.5`), shadow increases, and right arrow slides (`group-hover:translate-x-1`) in 150ms.
-- **Button Press**: Active button press scales to `0.98` (`active:scale-[0.98]`).
-- **Segmented Control**: Sliding highlight pill between Auto, Data, Docs, and Both.
-- **Agent Execution**: Step-by-step status line with glowing soft pulse node (`animate-pulse-soft`) and sequential trace timeline illumination. NO bouncing dots or spinner-only loading.
-- **Count-Up Animation**: Stat tiles (sales rows, policy chunks, tools) animate from 0 to target over 600ms once on initial mount.
-- **Theme Switcher**: Smooth 150-200ms color transition across CSS variables.
-- **Speed Cap**: No animation exceeds 400ms (except the 600ms count-up).
+- **Base Grid**: `8px` rhythm (`4px` / `8px` / `12px` / `16px` / `20px` increments) with a `24px × 24px` CSS grid-paper background at ~4% ink opacity.
+- **Corners & Borders**: `2px` maximum border radius (`rounded-xs`), `1px` hairline borders (`border-grid`), and hard offset depth (`2px 2px 0 var(--grid-line)`).
+- **Asymmetric Workbench Grid**:
+  - `>= 1280px`: `188px` narrow left `Spine` + wide fluid main logbook column + `392px` right `Margin` notes column.
+  - `768px – 1279px`: `188px` left `Spine` + fluid main column; `Margin` opens as a right drawer.
+  - `390px` mobile: fixed bottom navigation bar (`56px`) + slide-over drawer; `Margin` opens as an `84vh` bottom sheet.
+- **Modern Platform CSS**: CSS container queries (`.board-container`, `.catalog-container`), `:has()` focus styling on `.composer-frame` and `.strip-card`, `document.startViewTransition` for screen switches, `color-mix()`, and logical properties (`border-inline-start`, `padding-inline`).
 
 ---
 
-## 6. Three-Pane Workbench Architecture
+## 5. Component Inventory
 
-```
-+-------------------+-----------------------------------+-----------------------+
-|  SLIM SIDEBAR     |      MAIN CONVERSATION COLUMN     |    EVIDENCE PANEL     |
-|  (256px fixed)    |         (Editorial Log View)      |   (384px fixed/sheet) |
-|                   |                                   |                       |
-| - Logo Mark (SVG) | - Sticky breadcrumb bar           | - Tabs: Trace, SQL,   |
-| - "New Analysis"  | - Hero with 3 Stat Tiles          |   Results, Sources    |
-| - 3px Accent Bar  | - 5 Route-Bordered Starters       | - Vertical Timeline   |
-|   Active Nav Items| - Q_01, Q_02 question entries     |   with colored nodes  |
-| - Session History | - Answer card with route border   | - Syntax SQL + Copy   |
-| - High-contrast   | - Inline citation chips [1], [2]  | - Zebra table results |
-|   telemetry card  | - Real-time StatusLine progress   | - Vector chunks with  |
-| - Theme Toggle    | - Raised Composer with Segmented  |   cosine similarity   |
-|                   |   Route Selector (Auto/Data/Docs) | - Groundedness badge  |
-+-------------------+-----------------------------------+-----------------------+
-```
-
-### Mobile & Tablet Adaptation
-- On screens `< 1024px` (LG), the sidebar collapses into a slide-over drawer accessible via the top-left hamburger menu.
-- On screens `< 640px` (mobile), the Evidence panel opens as a responsive bottom sheet (`max-h-[82vh] rounded-t-xl`) with drag handle, preventing any horizontal overflow on 390px mobile screens. On tablet (640-1280px), it opens as a slide-over drawer.
-
----
-
-## 7. Component Directory
-
-| Component | File Path | Key Polish & Features |
+| Component | File | Purpose |
 | :--- | :--- | :--- |
-| `Sidebar` | `frontend/components/Sidebar.jsx` | Overlapping square SVG logo, 3px left border on active nav item, real counters, high-contrast Postgres telemetry card, theme toggle. |
-| `EmptyState` | `frontend/components/EmptyState.jsx` | 30px Newsreader title, capabilities strip with 3 stat tiles (sales rows, chunks, tools) with 600ms count-up, 5 starters with route-colored left borders and hover lift. |
-| `ChatMessage` | `frontend/components/ChatMessage.jsx` | `YOU · Q_01` user prompt line, assistant answer card with 3.5px left border in route color, route pill, inline clickable citation chips, copy button. |
-| `EvidencePanel` | `frontend/components/EvidencePanel.jsx` | 4 Tabs (`Trace`, `SQL`, `Results`, `Sources`), vertical execution timeline with colored step nodes, groundedness status, syntax SQL, zebra results table. |
-| `SqlBlock` | `frontend/components/SqlBlock.jsx` | Dark terminal mono block, high-contrast keyword highlighting (`SELECT`, `SUM`, `GROUP BY`), copy button with toast feedback. |
-| `DataTable` | `frontend/components/DataTable.jsx` | Zebra striping, right-aligned tabular figures for numbers, row count badge, clean borders. |
-| `SourceChip` | `frontend/components/SourceChip.jsx` | High-contrast interactive inline chip opening matching vector chunk in evidence panel. |
-| `QualityBars` | `frontend/components/QualityBars.jsx` | High-contrast before/after comparison bars with bold tabular figures and accent progress. |
-| `StatusLine` | `frontend/components/StatusLine.jsx` | Multi-step progress indicator with soft pulsing node (no bouncing dots). |
-| `DataQualityView` | `frontend/components/DataQualityView.jsx` | PySpark ETL audit with big numbers, null imputations, fat content standardization cards, and before/after comparison bars. |
-| `DocumentsView` | `frontend/components/DocumentsView.jsx` | High-contrast pgvector catalog, chunk statistics, search filter, and instant query buttons. |
-| `ThemeToggle` | `frontend/components/ThemeToggle.jsx` | High-contrast Light/Dark switch with smooth transitions. |
-| `page.jsx` | `frontend/app/page.jsx` | 3-pane workbench layout, raised composer card with segmented route control (Auto / Data / Docs / Both), mobile bottom sheet support. |
+| `WorkbenchApp` | `frontend/components/WorkbenchApp.jsx` | Client shell, global shortcuts (`⌘K`, `?`, `1–4`, `N`, `E`, `D`), SSE orchestration |
+| `Spine` | `frontend/components/Spine.jsx` | Narrow left navigation spine, session logbook, mobile bottom bar & drawer |
+| `LogEntry` | `frontend/components/LogEntry.jsx` | Ruled-line question entry + Shippori Mincho answer with interactive `[n]` citations |
+| `Margin` | `frontend/components/Margin.jsx` | Right margin notes column / mobile bottom sheet for evidence & traces |
+| `Timeline` | `frontend/components/Timeline.jsx` | 5-step execution stack (`Route`, `Query`, `Retrieve`, `Answer`, `Check`) |
+| `SqlBlock` | `frontend/components/SqlBlock.jsx` | High-contrast read-only SQL block with copy feedback |
+| `DataTable` | `frontend/components/DataTable.jsx` | Ruled table with right-aligned tabular numbers |
+| `Composer` | `frontend/components/Composer.jsx` | Sticky ledger composer with `Shift+Enter` and route tab index |
+| `SegmentedControl` | `frontend/components/SegmentedControl.jsx` | Stationery tab index for `Auto`, `Data`, `Docs`, `Both` |
+| `StripBoard` | `frontend/components/StripBoard.jsx` | 5-column ATC flight-strip board (`New`, `Investigating`, `Fix ready`, `Applied`, `Rejected`) |
+| `Strip` | `frontend/components/Strip.jsx` | Individual horizontal flight strip with fixed fields |
+| `TicketDetail` | `frontend/components/TicketDetail.jsx` | Inspection sheet with escaped message, diff, sandbox before/after, two-step approval |
+| `Stamp` | `frontend/components/Stamp.jsx` | Rotated square/circle hanko seal marks (`APPROVED`, `REJECTED`, `NEEDS REVIEW`, etc.) |
+| `ChannelStatus` | `frontend/components/ChannelStatus.jsx` | Live Slack, Email, and Teams status with toggle switches |
+| `DataQualityView` | `frontend/components/DataQualityView.jsx` | Plain-language summary, mono counters, ruled bars, and issue table |
+| `QualityBars` | `frontend/components/QualityBars.jsx` | Before/after ruled progress bars with large tabular figures |
+| `DocumentsView` | `frontend/components/DocumentsView.jsx` | Card catalog grid, upload, search, and chunk inspector |
+| `IndexCard` | `frontend/components/IndexCard.jsx` | Stationery catalog card for an indexed document |
+| `CommandPalette` | `frontend/components/CommandPalette.jsx` | `Ctrl+K` / `Cmd+K` keyboard switcher across screens, tickets, docs, and queries |
+| `KeyboardHelpModal` | `frontend/components/KeyboardHelpModal.jsx` | `?` keyboard shortcuts reference sheet |
+| `EmptyState` | `frontend/components/EmptyState.jsx` | 3-step first-run onboarding checklist + live schema starter questions |
+| `AddDataArea` / `AddDataModal` | `frontend/components/AddDataArea.jsx` | CSV & document upload and PySpark pipeline runner |
+| `ErrorState` | `frontend/components/ErrorState.jsx` | Specific error banner with retry action |
+| `Skeleton` | `frontend/components/Skeleton.jsx` | Paper-sweep loading placeholders for strips and tables |
+| `ThemeToggle` | `frontend/components/ThemeToggle.jsx` | Day Paper / Night Shift switcher |
 
 ---
 
-## 8. Verification & Build Confirmation
+## 6. Motion Rules
 
-- **TypeScript Free**: Verified 100% JavaScript (`.jsx`).
-- **ESLint**: Passed with `0 warnings, 0 errors` via Next.js core web vitals.
-- **Production Build**: Verified with `npm run build` yielding fully optimized standalone static bundles (`18.8 kB` index route, `106 kB` first load JS).
-- **Contrast Check**: All secondary texts verified to exceed WCAG AA (`#5E584B` on `#F6F1E7` = 5.27:1; `#B3AC9B` on `#1B1A17` = 6.45:1).
-
+All animations respect `prefers-reduced-motion: reduce`:
+- **Seal Stamp (`stamp-drop`)**: `180ms` scale (`1.32 → 0.96 → 1`) and settle at `-1.5deg` on approval or rejection.
+- **New Flight Strip (`strip-slide-in`)**: `200ms` slide from right (`18px → 0`) with a highlighter wash that fades to paper surface.
+- **Working Indicator (`highlighter-sweep`)**: Active timeline step draws a highlighter stroke left-to-right while the `aria-live="polite"` status region names the active step. No bouncing dots or spinner-only loading.
+- **Counters (`useCountUpOnce`)**: Numeric counters animate once over `500ms` on mount.
+- **Hover**: Flight strips and index cards lift by `1px` (`-translate-y-px`).
+- **View Transitions**: Screen switches use `document.startViewTransition` (`140ms` cross-fade) when supported and motion is allowed.
 
 ---
 
-## 9. Design System Implementation ("Live Agent Business Assistant")
+## 7. How to Extend the Design
 
-The frontend follows a telemetry-driven, high-contrast operating environment:
-
-### 9.1 Dual-Theme Architecture
-- **Light Theme ("Warm Technical Dossier")**:
-  - Page: `#F6F1E7`
-  - Surfaces: `#FAF6EE` (base), `#FFFFFF` (lowest), `#F8F3E9` (low), `#F2EDE3` (container), `#EDE8DE` (high), `#E7E2D8` (highest)
-  - Ink / Primary Text: `#181C22`, Muted Text: `#5A6578` (WCAG AAA / AA compliant)
-  - Accent Color: Chartreuse / Lime `#84CC16`
-  - Data / SQL Accent: Cyan `#0891B2`
-  - Docs / RAG Accent: Amber `#B45309`
-  - Success / Grounded: Emerald `#059669`
-
-- **Dark Theme ("Modern HUD & Technical Brutalism")**:
-  - Page: `#0E1116`
-  - Surfaces: `#161B22` (base), `#0B0E13` (lowest), `#191C21` (low), `#1D242D` (container), `#272A30` (high), `#32353A` (highest)
-  - Ink / Primary Text: `#F0F6FC`, Muted Text: `#8B949E`
-  - Accent Color: Electric Lime `#C6F432` (`#C5F331`)
-  - Data / SQL Accent: Bright Cyan `#22D3EE`
-  - Docs / RAG Accent: Amber `#F59E0B`
-  - Success / Grounded: Emerald `#10B981`
-
-### 9.2 Typography Architecture (Google Fonts via `next/font/google`)
-- **Headlines & Metric Display**: `Space Grotesk` (weights 600, 700) (`--font-headline`)
-- **Body & Prose**: `IBM Plex Sans` (weights 400, 500, 600) (`--font-body`)
-- **Telemetry, Code & Numbers**: `JetBrains Mono` (weights 400, 500, 700) (`--font-mono`)
-
-### 9.3 Component Directory
-- `Sidebar.jsx`: 72px fixed utility rail with geometric mark, vertical tab stack with notification badges, day/dark theme toggle, and live cluster latency indicator. Full mobile drawer overlay for `<1024px`.
-- `StatTile.jsx`: Telemetry card with 600ms count-up, semantic icon badge, and accent left border.
-- `StarterRow.jsx`: Inquiry card with 2px hover lift, route pill badge, and sliding arrow.
-- `SegmentedControl.jsx`: Route selector with `framer-motion` sliding pill (`layoutId`).
-- `Composer.jsx`: Raised card with auto-resizing textarea, shift+enter hint, and Electric Lime execute button.
-- `ChatMessage.jsx`: User questions with `#QRY-01` badge and Space Grotesk headline; Assistant answers in left-lime border card with streaming cursor and citation chips.
-- `EvidencePanel.jsx`: 420px desktop fixed panel and mobile bottom sheet featuring:
-  - Vertical Inference Call Stack with traveling pulse animation.
-  - Dark terminal SQL code block with execution time and copy button.
-  - Tabular snippet with monospaced figures.
-  - Vector chunk cards with similarity score bars.
-  - Animated SVG Pipeline Topology Map with moving telemetry particles (`animateMotion`).
-- `Timeline.jsx`: Multi-agent pipeline tracker supporting horizontal dispatch flow and vertical inference call stack.
-- `DataQualityView.jsx`: Global Health Index radial SVG ring, delta convergence bars, Spark 3.5 engine profile, and automated schema invariant table.
-- `SupportDeskView.jsx`, `TicketList.jsx`, `TicketDetail.jsx`: 4 KPI strips, backlog list, 7-step LangGraph node pipeline tracker, unified diff / SQL fix view, and HITL approval controls.
+1. **Adding a new screen**: Add a tab entry in `Spine.jsx` with a two-digit callsign (`05`), wire the shortcut in `WorkbenchApp.jsx`, add an entry in `CommandPalette.jsx`, and wrap the view in `max-w-6xl mx-auto` with `ErrorState`, `Skeleton`, and empty state coverage.
+2. **Adding a new status stamp**: Add an entry to `STAMP_MAP` in `Stamp.jsx` using existing CSS variables (`--seal-red`, `--sage`, `--amber`, `--route-data`) and always pair color with explicit uppercase text.
+3. **Adding a new token**: Define both `:root` and `.dark` values in `frontend/app/globals.css`, map the utility in `frontend/tailwind.config.js`, and verify >= 4.5:1 contrast with `axe-core`.

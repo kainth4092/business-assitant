@@ -13,9 +13,10 @@ import sys
 import uuid
 import json
 import logging
-from typing import Optional, List, Dict, Any
+from contextlib import asynccontextmanager
+from typing import Optional, List, Dict, Any, Literal
 from pydantic import BaseModel, Field
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import psycopg2
@@ -26,6 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.agent.graph import agent_graph
 from backend.rag.retrieval import list_indexed_sources, get_db_connection
+from backend.support.channel_manager import channel_manager
 from mcp_server.tools import get_data_quality_report
 
 load_dotenv()
@@ -33,10 +35,27 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("FastAPIServer")
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Starts background support channel workers when backend launches and stops them on exit."""
+    if not os.environ.get("PYTEST_CURRENT_TEST"):
+        try:
+            channel_manager.start_all()
+        except Exception as e:
+            logger.warning(f"Channel manager startup error: {e}")
+    yield
+    try:
+        channel_manager.stop_all()
+    except Exception:
+        pass
+
+
 app = FastAPI(
     title="Business Assistant API",
     description="Agentic enterprise assistant combining PySpark sales data and pgvector policy documents",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 # CORS configuration
@@ -57,6 +76,7 @@ app.add_middleware(
 class ChatRequest(BaseModel):
     query: str = Field(..., min_length=1, description="User's plain English question", json_schema_extra={"example": "What are the top 5 item types by sales?"})
     thread_id: Optional[str] = Field(None, description="Optional UUID for conversation memory session")
+    route: Optional[Literal["auto", "data", "docs", "both"]] = Field(None, description="Optional explicit routing mode override")
 
 class ExecutionTrace(BaseModel):
     route: str
@@ -131,8 +151,8 @@ def get_system_status():
         "tools_count": len(available_tools),
         "tools": available_tools,
         "llm_live_mode": has_live_llm,
-        "llm_model": os.environ.get("LLM_MODEL", "gemini-1.5-flash"),
-        "embedding_model": os.environ.get("EMBEDDING_MODEL", "text-embedding-004"),
+        "llm_model": os.environ.get("LLM_MODEL", "gemini-3.5-flash-lite"),
+        "embedding_model": os.environ.get("EMBEDDING_MODEL", "gemini-embedding-2"),
         "embedding_dimension": 768
     }
 
@@ -152,7 +172,8 @@ def chat_endpoint(payload: ChatRequest):
     initial_state = {
         "user_query": payload.query,
         "messages": [{"role": "user", "content": payload.query}],
-        "retry_count": 0
+        "retry_count": 0,
+        "route": payload.route if payload.route in ("data", "docs", "both") else "",
     }
     
     try:
@@ -345,9 +366,10 @@ def get_sample_questions_endpoint():
     - Automatically introspects categorical and numeric columns from sales table
     - Queries top distinct values and aggregations
     - Real document titles from pgvector document_embeddings
+    - Returns an empty list if there is no data or documents loaded yet.
     """
     global _SAMPLE_QUESTIONS_CACHE
-    if _SAMPLE_QUESTIONS_CACHE:
+    if _SAMPLE_QUESTIONS_CACHE is not None:
         return {"status": "SUCCESS", "starters": _SAMPLE_QUESTIONS_CACHE}
         
     conn = None
@@ -359,88 +381,110 @@ def get_sample_questions_endpoint():
         
         conn = get_db_connection(readonly=True)
         cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Verify whether sales records or documents actually exist
+        cur.execute("SELECT count(*) as count FROM sales;")
+        sales_row = cur.fetchone()
+        sales_count = sales_row["count"] if sales_row else 0
+
+        cur.execute("SELECT count(*) as count FROM document_embeddings;")
+        doc_count_row = cur.fetchone()
+        doc_count = doc_count_row["count"] if doc_count_row else 0
+
+        # If database has zero records and zero documents, return empty starters
+        if sales_count == 0 and doc_count == 0:
+            return {"status": "SUCCESS", "starters": []}
         
-        top_type_name = "Sample Category"
-        second_type_name = "Secondary Category"
-        primary_num = num_cols[0] if num_cols else "sales"
-        primary_cat = cat_cols[0] if cat_cols else "category"
+        starters = []
+        num_idx = 1
         
-        if cat_cols:
-            try:
-                cur.execute(f"""
-                    SELECT "{primary_cat}", count(*) as count
-                    FROM sales
-                    GROUP BY "{primary_cat}"
-                    ORDER BY count DESC
-                    LIMIT 2;
-                """)
-                rows = cur.fetchall()
-                if rows:
-                    top_type_name = str(rows[0][primary_cat])
-                if len(rows) > 1:
-                    second_type_name = str(rows[1][primary_cat])
-            except Exception:
-                pass
+        if sales_count > 0 and (cat_cols or num_cols):
+            primary_num = num_cols[0] if num_cols else "id"
+            primary_cat = cat_cols[0] if cat_cols else None
+            
+            top_type_name = None
+            second_type_name = None
+            if primary_cat:
+                try:
+                    cur.execute(f"""
+                        SELECT "{primary_cat}", count(*) as count
+                        FROM sales
+                        WHERE "{primary_cat}" IS NOT NULL AND "{primary_cat}" != 'Unknown'
+                        GROUP BY "{primary_cat}"
+                        ORDER BY count DESC
+                        LIMIT 2;
+                    """)
+                    rows = cur.fetchall()
+                    if rows:
+                        top_type_name = str(rows[0][primary_cat])
+                    if len(rows) > 1:
+                        second_type_name = str(rows[1][primary_cat])
+                except Exception:
+                    pass
+
+            if top_type_name:
+                starters.append({
+                    "num": f"{num_idx:02d}",
+                    "label": f"{top_type_name} Summary",
+                    "caption": f"Calculates total {primary_num} for {top_type_name}.",
+                    "query": f"What is the total {primary_num} and count for {top_type_name} in {primary_cat}?",
+                    "route": "data"
+                })
+                num_idx += 1
+
+            if second_type_name:
+                starters.append({
+                    "num": f"{num_idx:02d}",
+                    "label": f"{second_type_name} Analysis",
+                    "caption": f"Calculates average metrics for {second_type_name}.",
+                    "query": f"What is the average {primary_num} for {second_type_name}?",
+                    "route": "data"
+                })
+                num_idx += 1
+            elif not top_type_name and primary_num:
+                starters.append({
+                    "num": f"{num_idx:02d}",
+                    "label": f"{primary_num.title()} Overview",
+                    "caption": f"Calculates summary statistics for {primary_num}.",
+                    "query": f"What are the total and average values of {primary_num}?",
+                    "route": "data"
+                })
+                num_idx += 1
         
         # Fetch real document titles from document_embeddings
-        doc_rows = []
-        try:
-            cur.execute("""
-                SELECT DISTINCT source_file, title
-                FROM document_embeddings
-                ORDER BY source_file ASC
-                LIMIT 4;
-            """)
-            doc_rows = cur.fetchall()
-        except Exception:
-            pass
+        if doc_count > 0:
+            try:
+                cur.execute("""
+                    SELECT DISTINCT source_file, title
+                    FROM document_embeddings
+                    ORDER BY source_file ASC
+                    LIMIT 2;
+                """)
+                doc_rows = cur.fetchall()
+                for doc in doc_rows:
+                    title = doc.get("title") or doc.get("source_file")
+                    starters.append({
+                        "num": f"{num_idx:02d}",
+                        "label": title,
+                        "caption": f"Searches operational procedures in {doc.get('source_file')}.",
+                        "query": f"What are the key policy guidelines outlined in {doc.get('source_file')}?",
+                        "route": "docs"
+                    })
+                    num_idx += 1
+            except Exception:
+                pass
+
+        if sales_count > 0 and doc_count > 0 and starters:
+            top_kw = starters[0]["label"].split()[0]
+            starters.append({
+                "num": f"{num_idx:02d}",
+                "label": f"{top_kw} & Guidelines",
+                "caption": f"Correlates quantitative metrics with operational policies.",
+                "query": f"What are total metrics for {top_kw}, and what operational rules apply?",
+                "route": "both"
+            })
+            
         cur.close()
-        
-        starters = [
-            {
-                "num": "01",
-                "label": f"{top_type_name} Distribution",
-                "caption": f"Calculates total metrics for {top_type_name} in {primary_cat}.",
-                "query": f"What is the total {primary_num} and count for {top_type_name} in {primary_cat}?",
-                "route": "data"
-            },
-            {
-                "num": "02",
-                "label": f"{second_type_name} Performance",
-                "caption": f"Evaluates records and performance for {second_type_name}.",
-                "query": f"What is the average {primary_num} for {second_type_name}?",
-                "route": "data"
-            }
-        ]
-        
-        if doc_rows:
-            doc1 = doc_rows[0]
-            starters.append({
-                "num": "03",
-                "label": doc1.get("title") or doc1.get("source_file"),
-                "caption": f"Retrieves operational procedures from {doc1.get('source_file')}.",
-                "query": f"What are the key policy guidelines outlined in {doc1.get('source_file')}?",
-                "route": "docs"
-            })
-            
-        if len(doc_rows) > 1:
-            doc2 = doc_rows[1]
-            starters.append({
-                "num": "04",
-                "label": doc2.get("title") or doc2.get("source_file"),
-                "caption": f"Semantic vector search over {doc2.get('source_file')}.",
-                "query": f"What standard operating procedures apply to {doc2.get('source_file')}?",
-                "route": "docs"
-            })
-            
-        starters.append({
-            "num": "05",
-            "label": f"{top_type_name} & Policy Rules",
-            "caption": f"Unifies numerical totals for {top_type_name} with operational guidelines.",
-            "query": f"What are total {primary_num} metrics for {top_type_name}, and what operational policies apply?",
-            "route": "both"
-        })
-        
         _SAMPLE_QUESTIONS_CACHE = starters
         return {"status": "SUCCESS", "starters": starters}
     except Exception as e:
@@ -455,9 +499,17 @@ def get_sample_questions_endpoint():
 # ------------------------------------------------------------------------------
 class SupportMessageRequest(BaseModel):
     message: str = Field(..., min_length=1, description="Client problem or inquiry message")
-    client_name: Optional[str] = Field("Client User", description="Name of reporting client")
-    client_email: Optional[str] = Field("client@example.com", description="Client email address")
+    client_name: Optional[str] = Field(None, description="Name of reporting client")
+    sender: Optional[str] = Field(None, description="Alias for client_name")
+    client_email: Optional[str] = Field(None, description="Client email address")
+    sender_email: Optional[str] = Field(None, description="Alias for client_email")
     channel: Optional[str] = Field("webhook", description="Channel origin (webhook, slack, teams)")
+
+    def get_client_name(self) -> str:
+        return self.client_name or self.sender or "Client User"
+
+    def get_client_email(self) -> str:
+        return self.client_email or self.sender_email or "client@example.com"
 
 class ApproveTicketRequest(BaseModel):
     operator_name: Optional[str] = Field("human_operator", description="Name of approving administrator")
@@ -466,22 +518,59 @@ class RejectTicketRequest(BaseModel):
     reason: Optional[str] = Field("Remediation proposal rejected by administrator.", description="Reason for rejection")
     operator_name: Optional[str] = Field("human_operator", description="Name of rejecting administrator")
 
+class ToggleChannelRequest(BaseModel):
+    enabled: bool = Field(..., description="Whether the channel background worker should run")
+
+
+@app.get("/support/channels", status_code=status.HTTP_200_OK)
+def list_support_channels_endpoint():
+    """Returns live connection status, mode, error reason, and last activity per support channel."""
+    return {
+        "status": "SUCCESS",
+        "channels": channel_manager.get_all_statuses(),
+    }
+
+
+@app.post("/support/channels/{channel_id}/toggle", status_code=status.HTTP_200_OK)
+def toggle_support_channel_endpoint(channel_id: str, payload: ToggleChannelRequest):
+    """Enables or pauses a specific Support Desk channel worker."""
+    try:
+        updated = channel_manager.toggle_channel(channel_id, payload.enabled)
+        return {
+            "status": "SUCCESS",
+            "channel": updated,
+            "channels": channel_manager.get_all_statuses(),
+        }
+    except ValueError as ve:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(ve))
+
+
 @app.post("/support/messages", status_code=status.HTTP_200_OK)
 def create_support_message_endpoint(payload: SupportMessageRequest):
     """
-    Receives an incoming client message across Webhook, Slack, or Teams.
-    Triggers the autonomous Support Desk agent graph:
+    Receives an incoming client message from UI Simulator or HTTP Webhook.
+    Triggers the unified Support Desk ingestion + autonomous agent graph:
     Classify -> Investigate -> Propose_Fix -> Test_Fix -> Await_Approval.
     """
     try:
-        from backend.support.service import submit_support_message
+        from backend.support.service import (
+            ChannelPermissionError,
+            RateLimitExceededError,
+            submit_support_message,
+        )
         ticket = submit_support_message(
             message=payload.message,
-            client_name=payload.client_name or "Client User",
-            client_email=payload.client_email or "client@example.com",
+            client_name=payload.get_client_name(),
+            client_email=payload.get_client_email(),
             channel=payload.channel or "webhook"
         )
         return ticket
+    except ChannelPermissionError as pe:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(pe))
+    except RateLimitExceededError as rle:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(rle))
+    except ValueError as ve:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
     except Exception as e:
         logger.error(f"Error processing support message: {e}", exc_info=True)
         raise HTTPException(
@@ -558,6 +647,174 @@ def reject_support_ticket_endpoint(ticket_id: str, payload: RejectTicketRequest 
     except Exception as e:
         logger.error(f"Error rejecting ticket {ticket_id}: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+# -----------------------------------------------------------------------------
+# Upload & Pipeline Orchestration Endpoints (Part 4 Item 6)
+# -----------------------------------------------------------------------------
+@app.post("/upload/csv", status_code=status.HTTP_200_OK)
+async def upload_csv_endpoint(file: UploadFile = File(...)):
+    """Accepts CSV file upload, validates extension, and saves to data/ directory."""
+    if not file.filename.lower().endswith(".csv"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file format. Only .csv files are supported."
+        )
+    
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    data_dir = os.path.join(project_root, "data")
+    os.makedirs(data_dir, exist_ok=True)
+    
+    dest_path = os.path.join(data_dir, file.filename)
+    try:
+        content = await file.read()
+        if len(content) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Uploaded CSV file is empty."
+            )
+        with open(dest_path, "wb") as f:
+            f.write(content)
+            
+        global _SAMPLE_QUESTIONS_CACHE
+        _SAMPLE_QUESTIONS_CACHE = None
+        
+        return {
+            "status": "SUCCESS",
+            "message": f"Successfully uploaded CSV '{file.filename}'.",
+            "filename": file.filename,
+            "bytes_received": len(content)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error saving uploaded CSV: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+@app.post("/upload/documents", status_code=status.HTTP_200_OK)
+async def upload_documents_endpoint(files: List[UploadFile] = File(...)):
+    """Accepts multiple document files (.md, .txt, .pdf), validates, saves to docs/, and auto-indexes into pgvector."""
+    allowed_exts = (".md", ".txt", ".pdf")
+    saved = []
+    
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    docs_dir = os.path.join(project_root, "docs")
+    os.makedirs(docs_dir, exist_ok=True)
+    
+    for file in files:
+        ext = os.path.splitext(file.filename)[1].lower()
+        if ext not in allowed_exts:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unsupported format for '{file.filename}'. Supported formats: .md, .txt, .pdf"
+            )
+        dest_path = os.path.join(docs_dir, file.filename)
+        content = await file.read()
+        with open(dest_path, "wb") as f:
+            f.write(content)
+        saved.append(file.filename)
+        
+    global _SAMPLE_QUESTIONS_CACHE
+    _SAMPLE_QUESTIONS_CACHE = None
+    
+    # Automatically index documents into pgvector immediately
+    doc_chunks = 0
+    try:
+        from pipelines.ingest_docs import ingest_all_docs
+        doc_chunks = ingest_all_docs(docs_dir=docs_dir)
+        logger.info(f"Auto-ingested {len(saved)} uploaded files, producing {doc_chunks} vector chunks.")
+    except Exception as e:
+        logger.error(f"Error auto-ingesting uploaded documents: {e}")
+        
+    return {
+        "status": "SUCCESS",
+        "message": f"Successfully uploaded {len(saved)} document(s) and indexed {doc_chunks} vector chunks.",
+        "saved_files": saved,
+        "indexed_chunks": doc_chunks
+    }
+
+@app.post("/pipeline/ingest-docs", status_code=status.HTTP_200_OK)
+def ingest_docs_endpoint():
+    """Ingests and indexes all documents in docs/ into pgvector without re-running PySpark."""
+    global _SAMPLE_QUESTIONS_CACHE
+    _SAMPLE_QUESTIONS_CACHE = None
+    
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    docs_dir = os.path.join(project_root, "docs")
+    
+    try:
+        from pipelines.ingest_docs import ingest_all_docs
+        chunks = ingest_all_docs(docs_dir=docs_dir)
+        return {
+            "status": "SUCCESS",
+            "message": f"Successfully indexed {chunks} vector chunks from documents.",
+            "indexed_chunks": chunks
+        }
+    except Exception as e:
+        logger.error(f"Document ingestion error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Document ingestion failed: {str(e)}"
+        )
+
+@app.get("/pipeline/status", status_code=status.HTTP_200_OK)
+def get_pipeline_status_endpoint():
+    """Returns the current state of uploaded files in data/ and docs/."""
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    data_dir = os.path.join(project_root, "data")
+    docs_dir = os.path.join(project_root, "docs")
+    
+    csv_files = []
+    if os.path.exists(data_dir):
+        csv_files = [f for f in os.listdir(data_dir) if f.lower().endswith(".csv") and not f.startswith(".")]
+        
+    doc_files = []
+    if os.path.exists(docs_dir):
+        from pipelines.ingest_docs import is_user_policy_doc
+        doc_files = sorted([f for f in os.listdir(docs_dir) if is_user_policy_doc(f)])
+        
+    return {
+        "has_csv": len(csv_files) > 0,
+        "csv_files": csv_files,
+        "primary_csv": csv_files[0] if csv_files else None,
+        "has_documents": len(doc_files) > 0,
+        "document_files": doc_files,
+        "documents_count": len(doc_files)
+    }
+
+@app.post("/pipeline/run", status_code=status.HTTP_200_OK)
+def run_pipeline_endpoint():
+    """Executes the universal PySpark cleaning pipeline and document ingestion."""
+    global _SAMPLE_QUESTIONS_CACHE
+    _SAMPLE_QUESTIONS_CACHE = None
+    
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    data_dir = os.path.join(project_root, "data")
+    csv_files = [f for f in os.listdir(data_dir) if f.lower().endswith(".csv") and not f.startswith(".")] if os.path.exists(data_dir) else []
+    
+    pyspark_res = None
+    if csv_files:
+        try:
+            from pipelines.clean_sales import run_sales_pipeline
+            pyspark_res = run_sales_pipeline(input_csv=os.path.join(data_dir, csv_files[0]))
+        except Exception as e:
+            logger.error(f"Error running PySpark pipeline: {e}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"PySpark cleaning failed: {str(e)}")
+            
+    doc_chunks = 0
+    try:
+        from pipelines.ingest_docs import ingest_all_docs
+        doc_chunks = ingest_all_docs(docs_dir=os.path.join(project_root, "docs"))
+    except Exception as e:
+        logger.error(f"Error ingesting documents: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Document ingestion failed: {str(e)}")
+        
+    return {
+        "status": "SUCCESS",
+        "message": "Pipeline and document ingestion completed.",
+        "csv_processed": csv_files[0] if csv_files else None,
+        "cleaned_records": pyspark_res.get("records_profile", {}).get("cleaned_total_rows") if pyspark_res else 0,
+        "indexed_chunks": doc_chunks
+    }
 
 if __name__ == "__main__":
     import uvicorn

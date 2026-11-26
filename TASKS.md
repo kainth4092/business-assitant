@@ -162,7 +162,45 @@
   - [x] Run full backend & frontend verification (`pytest`, `npm run lint`, `npm run build`)
   - [x] Write comprehensive beginner usage guide `USAGE.md`
 
-- [x] **Stage 14: Stitch Cleanup & Universal Dynamic Data Ingestion**
+- [x] **Stage 15: Clean Data-Agnostic Reset & Test Isolation**
+  - [x] **Part 0: Safety & Backup**
+    - [x] Create git branch `backup-before-reset` and commit clean state
+    - [x] Restrict all operations strictly inside `/home/kanish/Documents/business-assistant`
+  - [x] **Part 1: Pre-Reset Static & Seed Audit**
+    - [x] Perform comprehensive codebase audit of all static/seeded artifacts
+    - [x] Generate `RESET_AUDIT.md` inventory with file and line references
+  - [x] **Part 2: Test Database Isolation**
+    - [x] Create dedicated test database `business_assistant_test`
+    - [x] Update `tests/conftest.py` with strict safety guard preventing test pollution of `business_assistant`
+    - [x] Fix tool DB connections to dynamically read `DATABASE_URL` per request
+  - [x] **Part 3: Complete State & Sample Wipe**
+    - [x] Purge Docker volumes, containers, Parquet outputs, vector data, tickets, and logs
+    - [x] Delete `data/BigMart_Sales.csv`, `pipelines/generate_data.py`, and sample documents in `docs/`
+    - [x] Leave clean `data/README.md` and `docs/README.md`
+    - [x] Verify exactly 0 rows across all tables in application database `business_assistant`
+  - [x] **Part 4: Data-Agnostic Pipelines & User Interface**
+    - [x] PySpark schema auto-discovery and generic ETL in `pipelines/clean_sales.py`
+    - [x] Multi-format document ingestion (`.md`, `.txt`, `.pdf`) with dynamic title extraction in `pipelines/ingest_docs.py`
+    - [x] Dynamic `/sample-questions` returning `[]` when database has zero records
+    - [x] Implement `/upload/csv`, `/upload/documents`, `/pipeline/run`, and `/pipeline/status` endpoints
+    - [x] Add Data area (`AddDataArea.jsx` and `AddDataModal.jsx`) with progress, validation, and CLI instructions
+    - [x] First-run onboarding screen on Analysis view: "Upload a CSV to begin"
+    - [x] Genuine empty states for Data Quality ("Run the pipeline to see a report"), Documents ("No documents yet"), and Support Desk ("No tickets yet")
+    - [x] Replace preset support tickets with custom interactive user message simulation modal
+    - [x] Eliminate all fake numbers ("18ms", "0.8s", "1,500", "21 chunks") with honest "—" displays
+  - [x] **Part 5: Automated Guardrail Tests & Verification**
+    - [x] Create comprehensive `tests/test_zero_mock_guardrails.py` scanning for forbidden patterns
+    - [x] Test upload endpoints with automatic cleanup
+    - [x] Test dynamic schema detection with 3 distinct synthetic CSVs generated strictly inside test
+    - [x] Test document ingestion with `.md`, `.txt`, `.pdf`
+    - [x] Test real MCP tool execution and security enforcement
+    - [x] Verify zero rows in `business_assistant` database after reset
+    - [x] Run full pytest suite (53/53 tests passed)
+    - [x] Run frontend linter and production build (`npm run lint` and `npm run build` -> 0 errors)
+  - [ ] **Part 6: Verification, Documentation & Operator Handoff**
+    - [ ] Generate `RESET_REPORT.md`
+    - [ ] Update `USAGE.md`
+    - [ ] Output final summary with the exact stopping instruction
   - [x] **Part 0: Safety & Backup**
     - [x] Create git branch `backup-before-stitch-cleanup` and commit current state
     - [x] Restrict operations exclusively within project workspace
@@ -181,3 +219,32 @@
     - [x] Execute full pipeline on dataset (Docker up, PySpark, Doc Ingestion, MCP, Agent flow, FastAPI, Frontend, Support Desk)
     - [x] Run full test suite (`pytest` 54/54 passed, `qa_suite.py` 62/62 passed) and resolve any regressions
     - [x] Generate `FLOW_REPORT.md` and update `USAGE.md`
+
+
+- [x] **Stage 16: Real Support Desk Communication Channels (Telegram, Email, Slack, Teams Stub)**
+  - [x] Update DB schemas (`infra/init.sql`, `infra/support_schema.sql`) and add idempotent runtime migration for `sender_id`, `external_message_id`, `thread_id`, `thread_url`, `channel_metadata`, `is_flagged`, `flag_reason`, and unique dedupe index
+  - [x] Implement security guardrails in `backend/support/security.py` (secret redaction, reply sanitization, allowlist parser, prompt-injection & channel-approval blocking)
+  - [x] Implement normalized `ChannelAdapter` / `NormalizedChannelMessage` in `backend/support/adapters.py` and concrete adapters in `backend/support/channels/`:
+    - [x] `telegram.py` (long polling + chat/thread replies)
+    - [x] `email.py` (30s IMAP polling + SMTP `In-Reply-To` replies)
+    - [x] `slack.py` (`slack_sdk` Socket Mode + thread replies)
+    - [x] `teams.py` (stub referencing `docs/TEAMS_SETUP.md`)
+  - [x] Route all inbound messages (UI, Webhook, Telegram, Email, Slack) through unified `ingest_channel_message` in `backend/support/service.py` while keeping sandbox & HITL approval gate untouched
+  - [x] Implement background `ChannelManager` (`backend/support/channel_manager.py`), FastAPI `lifespan` integration, `make channels` target, `GET /support/channels`, and `POST /support/channels/{id}/toggle`
+  - [x] Exclude `CHANNELS_SETUP.md` and `TEAMS_SETUP.md` from user policy RAG ingestion (`is_user_policy_doc`)
+  - [x] Update Support Desk UI (`ChannelBadge.jsx`, `ChannelStatusPanel.jsx`, `TicketList.jsx`, `TicketDetail.jsx`, `SupportDeskView.jsx`)
+  - [x] Add comprehensive offline/fake-input pytest suite `tests/test_support_channels.py`
+  - [x] Write beginner setup & admin docs (`docs/CHANNELS_SETUP.md`, `docs/TEAMS_SETUP.md`) and update `.env.example`, `USAGE.md`, `DEMO_SCRIPT.md`, `BLOCKED.md`, `DECISIONS.md`, `TASKS.md`
+- [x] **Stage 17: Remove Telegram Communication Channel**
+  - [x] Delete `backend/support/channels/telegram.py` and remove Telegram references from `backend/support/` (`adapters.py`, `channel_manager.py`, `service.py`, `security.py`, `channels/__init__.py`)
+  - [x] Remove Telegram from UI (`ChannelBadge.jsx`, `SupportDeskView.jsx`, 3-column `ChannelStatusPanel.jsx`), `.env.example`, docs, and update `tests/test_support_channels.py`
+
+- [x] **Stage 18: Stationery × Air-Traffic-Control Flight-Strip Frontend Redesign**
+  - [x] Verify latest stable npm versions (`next@16.4.6`, `react@19.3.1`, `react-dom@19.3.1`, `tailwindcss@4.3.5`, `@tailwindcss/postcss@4.3.5`, `motion@14.14.0`, `lucide-react@1.81.0`, `@playwright/test@1.65.1`, `@axe-core/playwright@4.14.1`, `eslint-config-next@16.4.6`) and upgrade notes
+  - [x] Record package versions and architectural choices in `DECISIONS.md` and `DESIGN_NOTES.md`
+  - [x] Upgrade `frontend/package.json`, configure ESLint flat config, Tailwind v4 `@tailwindcss/postcss`, and Next.js security headers
+  - [x] Implement CSS token system (Stationery Light + Night Shift Dark), grid-paper texture, Shippori Mincho / Zen Kaku Gothic New / JetBrains Mono via `next/font/google`, container queries, `:has()`, view transitions, and reduced-motion rules
+  - [x] Implement SSE streaming client (`frontend/lib/sseStream.js`) and Next.js SSE proxy handler (`frontend/app/api/chat/stream/route.js`) with reconnect and error path while keeping `POST /chat` fully intact
+  - [x] Build reusable components (`Spine`, `Strip`, `StripBoard`, `Stamp`, `LogEntry`, `Margin`, `Timeline`, `SqlBlock`, `DataTable`, `QualityBars`, `IndexCard`, `ChannelStatus`, `CommandPalette`, `KeyboardHelpModal`, `EmptyState`, `ErrorState`, `Skeleton`, `Composer`, `SegmentedControl`, `AddDataArea`, `AddDataModal`, `DataQualityView`, `DocumentsView`, `SupportDeskView`, `TicketDetail`, `WorkbenchApp`)
+  - [x] Build Playwright E2E + `@axe-core/playwright` accessibility + responsive screenshot suite (`390px` & `1440px`, light & dark, empty & populated data)
+  - [x] Run `npm run lint`, `npm run build`, `npm audit`, Playwright tests, and `pytest`, review screenshots, and fix all issues
