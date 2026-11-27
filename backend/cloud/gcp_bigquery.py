@@ -24,7 +24,12 @@ from backend.cloud.config import (
     get_gcp_project_id,
 )
 from backend.cloud.interfaces import SalesStore
-from backend.cloud.sql_guard import adapt_dml_for_bigquery, rewrite_sql_for_bigquery
+from backend.cloud.sql_guard import (
+    adapt_dml_for_bigquery,
+    build_ctas_from_update,
+    is_bigquery_sandbox_dml_error,
+    rewrite_sql_for_bigquery,
+)
 
 logger = logging.getLogger("FixdeskBigQuery")
 
@@ -386,6 +391,83 @@ class BigQuerySalesStore(SalesStore):
             logger.error(f"BigQuery data quality checks failed: {e}")
             return {"status": "ERROR", "error": str(e)}
 
+    def _get_table_columns(self, fq_table: str) -> List[str]:
+        client = self._get_client()
+        table = client.get_table(fq_table)
+        return [f.name for f in table.schema]
+
+    def _execute_update_with_sandbox_fallback(
+        self,
+        sql_patch: str,
+        source_fq_table: str,
+        target_fq_table: str,
+        target_dataset: str,
+        target_table_name: str,
+    ) -> Dict[str, Any]:
+        """
+        Execute an UPDATE patch on BigQuery. If BigQuery Sandbox (no billing) rejects DML,
+        fall back gracefully to `CREATE OR REPLACE TABLE ... AS SELECT` (CTAS).
+        """
+        from google.cloud import bigquery
+
+        client = self._get_client()
+        project = self._resolve_project()
+        applied_sql = adapt_dml_for_bigquery(
+            sql_patch,
+            project_id=project,
+            dataset=target_dataset,
+            table_name=target_table_name,
+        )
+        dml_cfg = bigquery.QueryJobConfig(
+            maximum_bytes_billed=self.max_bytes_billed,
+            default_dataset=f"{project}.{target_dataset}",
+        )
+        try:
+            dml_job = client.query(applied_sql, job_config=dml_cfg)
+            dml_job.result()
+            return {
+                "rows_affected": int(getattr(dml_job, "num_dml_affected_rows", 0) or 0),
+                "sql_executed": applied_sql,
+                "sandbox_mode_fallback": False,
+                "execution_mode": "dml_update",
+                "fallback_note": None,
+            }
+        except Exception as dml_err:
+            if not is_bigquery_sandbox_dml_error(dml_err):
+                raise
+
+            logger.warning(
+                "BigQuery DML rejected (Sandbox / no-billing mode detected). "
+                "Falling back to CREATE OR REPLACE TABLE ... AS SELECT."
+            )
+            cols = self._get_table_columns(source_fq_table)
+            count_sql, ctas_sql = build_ctas_from_update(
+                sql_patch=sql_patch,
+                table_columns=cols,
+                source_fq_table=source_fq_table,
+                target_fq_table=target_fq_table,
+            )
+            count_res = self._run_cost_guarded_query(
+                count_sql, dataset_id=target_dataset, use_cache=False
+            )
+            affected = int(count_res["rows"][0]["affected"]) if count_res["rows"] else 0
+
+            ctas_cfg = bigquery.QueryJobConfig(
+                maximum_bytes_billed=self.max_bytes_billed,
+                default_dataset=f"{project}.{target_dataset}",
+            )
+            client.query(ctas_sql, job_config=ctas_cfg).result()
+            return {
+                "rows_affected": affected,
+                "sql_executed": ctas_sql,
+                "sandbox_mode_fallback": True,
+                "execution_mode": "ctas_sandbox_fallback",
+                "fallback_note": (
+                    "BigQuery Sandbox mode (no billing) does not allow DML UPDATE statements; "
+                    "Fixdesk automatically rebuilt the target table using CREATE OR REPLACE TABLE AS SELECT."
+                ),
+            }
+
     def preview_data_fix(self, sql_patch: str, ticket_id: str) -> Dict[str, Any]:
         from google.cloud import bigquery
 
@@ -411,20 +493,22 @@ class BigQuerySalesStore(SalesStore):
 
             rows_affected = 0
             applied_sql = ""
+            sandbox_fallback = False
+            execution_mode = "dml_update"
+            fallback_note = None
             if (sql_patch or "").strip():
-                applied_sql = adapt_dml_for_bigquery(
-                    sql_patch,
-                    project_id=project,
-                    dataset=self.sandbox_dataset,
-                    table_name="sales_sandbox",
+                exec_res = self._execute_update_with_sandbox_fallback(
+                    sql_patch=sql_patch,
+                    source_fq_table=sandbox_table,
+                    target_fq_table=sandbox_table,
+                    target_dataset=self.sandbox_dataset,
+                    target_table_name="sales_sandbox",
                 )
-                dml_cfg = bigquery.QueryJobConfig(
-                    maximum_bytes_billed=self.max_bytes_billed,
-                    default_dataset=f"{project}.{self.sandbox_dataset}",
-                )
-                dml_job = client.query(applied_sql, job_config=dml_cfg)
-                dml_job.result()
-                rows_affected = int(getattr(dml_job, "num_dml_affected_rows", 0) or 0)
+                rows_affected = exec_res["rows_affected"]
+                applied_sql = exec_res["sql_executed"]
+                sandbox_fallback = exec_res["sandbox_mode_fallback"]
+                execution_mode = exec_res["execution_mode"]
+                fallback_note = exec_res["fallback_note"]
 
             after_res = self._run_cost_guarded_query(
                 f"SELECT COUNT(*) AS total FROM `{sandbox_table}`",
@@ -439,7 +523,7 @@ class BigQuerySalesStore(SalesStore):
                 use_cache=False,
             )
 
-            return {
+            resp = {
                 "status": "SUCCESS",
                 "fix_type": "data_issue",
                 "target_table": f"{self.sandbox_dataset}.sales_sandbox",
@@ -448,15 +532,17 @@ class BigQuerySalesStore(SalesStore):
                 "after_counts": after_counts,
                 "sample_diff": sample_res["rows"],
                 "sql_applied_to_sandbox": applied_sql,
+                "sandbox_mode_fallback": sandbox_fallback,
+                "execution_mode": execution_mode,
             }
+            if fallback_note:
+                resp["fallback_note"] = fallback_note
+            return resp
         except Exception as e:
             logger.error(f"Error previewing BigQuery data fix in sandbox: {e}")
             return {"status": "ERROR", "error": str(e)}
 
     def apply_data_fix(self, sql_patch: str) -> Dict[str, Any]:
-        from google.cloud import bigquery
-
-        client = self._get_client()
         project = self._resolve_project()
         prod_table = f"{project}.{self.dataset}.sales"
 
@@ -467,19 +553,13 @@ class BigQuerySalesStore(SalesStore):
         )
         before_counts = {"total_rows": int(before_res["rows"][0]["total"])}
 
-        applied_sql = adapt_dml_for_bigquery(
-            sql_patch,
-            project_id=project,
-            dataset=self.dataset,
-            table_name="sales",
+        exec_res = self._execute_update_with_sandbox_fallback(
+            sql_patch=sql_patch,
+            source_fq_table=prod_table,
+            target_fq_table=prod_table,
+            target_dataset=self.dataset,
+            target_table_name="sales",
         )
-        dml_cfg = bigquery.QueryJobConfig(
-            maximum_bytes_billed=self.max_bytes_billed,
-            default_dataset=f"{project}.{self.dataset}",
-        )
-        dml_job = client.query(applied_sql, job_config=dml_cfg)
-        dml_job.result()
-        rows_affected = int(getattr(dml_job, "num_dml_affected_rows", 0) or 0)
 
         after_res = self._run_cost_guarded_query(
             f"SELECT COUNT(*) AS total FROM `{prod_table}`",
@@ -487,12 +567,17 @@ class BigQuerySalesStore(SalesStore):
             use_cache=False,
         )
         after_counts = {"total_rows": int(after_res["rows"][0]["total"])}
-        return {
+        result = {
             "before_counts": before_counts,
             "after_counts": after_counts,
-            "rows_affected": rows_affected,
+            "rows_affected": exec_res["rows_affected"],
             "target_table": f"{self.dataset}.sales",
+            "sandbox_mode_fallback": exec_res["sandbox_mode_fallback"],
+            "execution_mode": exec_res["execution_mode"],
         }
+        if exec_res["fallback_note"]:
+            result["fallback_note"] = exec_res["fallback_note"]
+        return result
 
     def load_sales_from_parquet(
         self,
@@ -574,7 +659,14 @@ class BigQuerySalesStore(SalesStore):
             "report_data": json.dumps(quality_report),
             "created_at": now_iso,
         }
-        client.insert_rows_json(qr_table_id, [qr_row])
+        client.load_table_from_json(
+            [qr_row],
+            qr_table_id,
+            job_config=bigquery.LoadJobConfig(
+                schema=qr_schema,
+                write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
+            ),
+        ).result()
 
         sm_table_id = f"{project}.{self.dataset}.schema_metadata"
         sm_schema = [
@@ -596,7 +688,14 @@ class BigQuerySalesStore(SalesStore):
             "columns_info": json.dumps(cols),
             "created_at": now_iso,
         }
-        client.insert_rows_json(sm_table_id, [sm_row])
+        client.load_table_from_json(
+            [sm_row],
+            sm_table_id,
+            job_config=bigquery.LoadJobConfig(
+                schema=sm_schema,
+                write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
+            ),
+        ).result()
 
         return {
             "status": "SUCCESS",

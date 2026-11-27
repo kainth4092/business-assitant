@@ -21,6 +21,7 @@ from backend.cloud.config import (
     get_gcp_region,
 )
 from backend.cloud.interfaces import VectorStore
+from backend.cloud.sql_guard import is_bigquery_sandbox_dml_error
 from project_init.security import redact_secrets
 
 logger = logging.getLogger("FixdeskBQVector")
@@ -124,12 +125,6 @@ class BigQueryVectorStore(VectorStore):
         client = self._get_client()
         table_id = self._table_id()
 
-        # Replace existing chunks cleanly for fresh ingestion
-        client.query(
-            f"TRUNCATE TABLE `{table_id}`",
-            job_config=bigquery.QueryJobConfig(maximum_bytes_billed=self.max_bytes_billed),
-        ).result()
-
         now_iso = datetime.now(timezone.utc).isoformat()
         rows = []
         for chunk, emb in zip(chunks, embeddings):
@@ -152,6 +147,11 @@ class BigQueryVectorStore(VectorStore):
             )
             client.load_table_from_json(rows, table_id, job_config=load_cfg).result()
             self._maybe_create_vector_index(table_id, "idx_document_embeddings_ivf")
+        else:
+            client.query(
+                f"CREATE OR REPLACE TABLE `{table_id}` AS SELECT * FROM `{table_id}` WHERE FALSE",
+                job_config=bigquery.QueryJobConfig(maximum_bytes_billed=self.max_bytes_billed),
+            ).result()
         return len(rows)
 
     def search_documents(
@@ -455,6 +455,41 @@ class BigQueryCodeVectorStore:
         for name, schema in tables.items():
             client.create_table(bigquery.Table(self._tbl(name), schema=schema), exists_ok=True)
 
+    def _load_json_rows(
+        self,
+        table_name: str,
+        rows: List[Dict[str, Any]],
+        write_disposition: Optional[str] = None,
+    ) -> None:
+        """Persist rows via BigQuery Batch Load Job (Sandbox/free-tier safe; avoids streaming inserts)."""
+        if not rows:
+            return
+        from google.cloud import bigquery
+
+        cfg = bigquery.LoadJobConfig(
+            write_disposition=write_disposition or bigquery.WriteDisposition.WRITE_APPEND
+        )
+        self._get_client().load_table_from_json(
+            rows, self._tbl(table_name), job_config=cfg
+        ).result()
+
+    def _dml_with_ctas_fallback(
+        self,
+        dml_sql: str,
+        fallback_ctas_sql: str,
+        params: Optional[List[Any]] = None,
+    ) -> None:
+        """Execute DML when billing is enabled, or fall back to CTAS in BigQuery Sandbox mode."""
+        try:
+            self._query(dml_sql, params)
+        except Exception as exc:
+            if not is_bigquery_sandbox_dml_error(exc):
+                raise
+            logger.warning(
+                "BigQuery Sandbox (no-billing) DML limitation detected; executing CTAS fallback."
+            )
+            self._query(fallback_ctas_sql, params)
+
     def upsert_project(
         self,
         name: str,
@@ -471,12 +506,13 @@ class BigQueryCodeVectorStore:
 
         tbl = self._tbl("code_projects")
         now_iso = datetime.now(timezone.utc).isoformat()
-        self._query(
+        self._dml_with_ctas_fallback(
             f"DELETE FROM `{tbl}` WHERE name = @name",
+            f"CREATE OR REPLACE TABLE `{tbl}` AS SELECT * FROM `{tbl}` WHERE name != @name",
             [bigquery.ScalarQueryParameter("name", "STRING", name)],
         )
-        self._get_client().insert_rows_json(
-            tbl,
+        self._load_json_rows(
+            "code_projects",
             [
                 {
                     "name": name,
@@ -517,12 +553,11 @@ class BigQueryCodeVectorStore:
     def save_cached_summaries(self, summaries: Dict[str, str]) -> None:
         if not summaries:
             return
-        tbl = self._tbl("code_summary_cache")
         rows = [
             {"content_hash": k, "summary": redact_secrets(v)}
             for k, v in summaries.items()
         ]
-        self._get_client().insert_rows_json(tbl, rows)
+        self._load_json_rows("code_summary_cache", rows)
 
     def replace_file_chunks(
         self,
@@ -537,8 +572,6 @@ class BigQueryCodeVectorStore:
         chunks: List[Any],
         embeddings: List[List[float]],
     ) -> None:
-        from google.cloud import bigquery
-
         self.delete_file(project, file_path)
         chunk_rows = []
         for chunk, vec in zip(chunks, embeddings):
@@ -560,16 +593,10 @@ class BigQueryCodeVectorStore:
                 }
             )
         if chunk_rows:
-            self._get_client().load_table_from_json(
-                chunk_rows,
-                self._tbl("code_chunks"),
-                job_config=bigquery.LoadJobConfig(
-                    write_disposition=bigquery.WriteDisposition.WRITE_APPEND
-                ),
-            ).result()
+            self._load_json_rows("code_chunks", chunk_rows)
 
-        self._get_client().insert_rows_json(
-            self._tbl("code_file_metadata"),
+        self._load_json_rows(
+            "code_file_metadata",
             [
                 {
                     "project": project,
@@ -593,12 +620,16 @@ class BigQueryCodeVectorStore:
             bigquery.ScalarQueryParameter("p", "STRING", project),
             bigquery.ScalarQueryParameter("fp", "STRING", file_path),
         ]
-        self._query(
-            f"DELETE FROM `{self._tbl('code_chunks')}` WHERE project = @p AND file_path = @fp",
+        chunks_tbl = self._tbl("code_chunks")
+        meta_tbl = self._tbl("code_file_metadata")
+        self._dml_with_ctas_fallback(
+            f"DELETE FROM `{chunks_tbl}` WHERE project = @p AND file_path = @fp",
+            f"CREATE OR REPLACE TABLE `{chunks_tbl}` AS SELECT * FROM `{chunks_tbl}` WHERE NOT (project = @p AND file_path = @fp)",
             params,
         )
-        self._query(
-            f"DELETE FROM `{self._tbl('code_file_metadata')}` WHERE project = @p AND file_path = @fp",
+        self._dml_with_ctas_fallback(
+            f"DELETE FROM `{meta_tbl}` WHERE project = @p AND file_path = @fp",
+            f"CREATE OR REPLACE TABLE `{meta_tbl}` AS SELECT * FROM `{meta_tbl}` WHERE NOT (project = @p AND file_path = @fp)",
             params,
         )
 
@@ -606,8 +637,9 @@ class BigQueryCodeVectorStore:
         from google.cloud import bigquery
 
         tbl = self._tbl("code_skipped_files")
-        self._query(
+        self._dml_with_ctas_fallback(
             f"DELETE FROM `{tbl}` WHERE project = @p",
+            f"CREATE OR REPLACE TABLE `{tbl}` AS SELECT * FROM `{tbl}` WHERE project != @p",
             [bigquery.ScalarQueryParameter("p", "STRING", project)],
         )
         if skipped:
@@ -622,7 +654,7 @@ class BigQueryCodeVectorStore:
                 }
                 for item in skipped
             ]
-            self._get_client().insert_rows_json(tbl, rows)
+            self._load_json_rows("code_skipped_files", rows)
 
     def refresh_project_counts(self, project: str, commit_hash: str) -> Dict[str, int]:
         from google.cloud import bigquery
@@ -631,21 +663,38 @@ class BigQueryCodeVectorStore:
         fc = int(self._query(f"SELECT COUNT(*) AS c FROM `{self._tbl('code_file_metadata')}` WHERE project = @p", p_param)[0]["c"])
         cc = int(self._query(f"SELECT COUNT(*) AS c FROM `{self._tbl('code_chunks')}` WHERE project = @p", p_param)[0]["c"])
         sc = int(self._query(f"SELECT COUNT(*) AS c FROM `{self._tbl('code_skipped_files')}` WHERE project = @p", p_param)[0]["c"])
-        self._query(
+        proj_tbl = self._tbl("code_projects")
+        params = [
+            bigquery.ScalarQueryParameter("fc", "INT64", fc),
+            bigquery.ScalarQueryParameter("cc", "INT64", cc),
+            bigquery.ScalarQueryParameter("sc", "INT64", sc),
+            bigquery.ScalarQueryParameter("ch", "STRING", commit_hash),
+            bigquery.ScalarQueryParameter("p", "STRING", project),
+        ]
+        self._dml_with_ctas_fallback(
             f"""
-            UPDATE `{self._tbl('code_projects')}`
+            UPDATE `{proj_tbl}`
             SET file_count = @fc, chunk_count = @cc, skipped_count = @sc,
                 last_commit_hash = @ch, last_indexed_at = CURRENT_TIMESTAMP(),
                 status = 'indexed', last_error = NULL
             WHERE name = @p
             """,
-            [
-                bigquery.ScalarQueryParameter("fc", "INT64", fc),
-                bigquery.ScalarQueryParameter("cc", "INT64", cc),
-                bigquery.ScalarQueryParameter("sc", "INT64", sc),
-                bigquery.ScalarQueryParameter("ch", "STRING", commit_hash),
-                bigquery.ScalarQueryParameter("p", "STRING", project),
-            ],
+            f"""
+            CREATE OR REPLACE TABLE `{proj_tbl}` AS
+            SELECT
+                name,
+                local_path,
+                default_branch,
+                CASE WHEN name = @p THEN @ch ELSE last_commit_hash END AS last_commit_hash,
+                CASE WHEN name = @p THEN CURRENT_TIMESTAMP() ELSE last_indexed_at END AS last_indexed_at,
+                CASE WHEN name = @p THEN @fc ELSE file_count END AS file_count,
+                CASE WHEN name = @p THEN @cc ELSE chunk_count END AS chunk_count,
+                CASE WHEN name = @p THEN @sc ELSE skipped_count END AS skipped_count,
+                CASE WHEN name = @p THEN 'indexed' ELSE status END AS status,
+                CASE WHEN name = @p THEN CAST(NULL AS STRING) ELSE last_error END AS last_error
+            FROM `{proj_tbl}`
+            """,
+            params,
         )
         return {"file_count": fc, "chunk_count": cc, "skipped_count": sc}
 

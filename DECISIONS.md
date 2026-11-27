@@ -334,3 +334,17 @@ This log records all technical, architectural, and design decisions made for the
   3. **Audit Log & Operational State**: Keep `support_tickets` and `audit_log` transactional state locally in PostgreSQL while executing Support Desk data previews in BigQuery `BQ_SANDBOX_DATASET` when `STORAGE_BACKEND=gcp`, ensuring human-in-the-loop lock integrity without Cloud SQL cost.
   4. **Codebase Privacy Guard**: Default `cloud_index_allowed: false` in `projects.yaml` so private repositories remain local-only unless explicitly opted in (and always filtered/redacted before any cloud call).
   5. **Cost & Quota Protection**: Enforce US multi-region storage/datasets, BigQuery dry-run checks + `maximum_bytes_billed`, and local daily AI request/token budget tracking surfaced in the UI.
+
+---
+
+### Decision 27: BigQuery Sandbox (No-Billing) Compatibility via CTAS Fallback & Batch Load Jobs
+- **Context**: BigQuery Sandbox (projects without an active billing account) forbids DML statements (`UPDATE`, `INSERT`, `MERGE`, `DELETE`) and streaming inserts (`insert_rows_json`), while permitting batch load jobs (`load_table_from_uri`, `load_table_from_json`), `copy_table`, and `CREATE OR REPLACE TABLE ... AS SELECT` (CTAS).
+- **Decision**:
+  1. **Batch Load Jobs Everywhere**: Switched `quality_reports` and `schema_metadata` writes (`BigQuerySalesStore.load_sales_from_parquet`), `document_embeddings` writes (`BigQueryVectorStore.upsert_document_chunks` via `WRITE_TRUNCATE`), and all `BigQueryCodeVectorStore` metadata/chunk writes from `insert_rows_json` / `TRUNCATE TABLE` to `load_table_from_json` batch load jobs.
+  2. **Automatic DML -> CTAS Fallback (`backend/cloud/sql_guard.py`, `gcp_bigquery.py`, `gcp_vector.py`)**: `preview_data_fix`, `apply_data_fix`, and `BigQueryCodeVectorStore` maintenance operations attempt standard DML first (for billed projects) and, when `is_bigquery_sandbox_dml_error()` detects a free-tier/no-billing DML rejection, fall back gracefully to `CREATE OR REPLACE TABLE ... AS SELECT` (`CASE WHEN ...`) with an explicit `sandbox_mode_fallback: True` flag and `fallback_note` message.
+  3. **Unchanged HITL Gate & Audit Log**: `mcp_server/support_tools.py` keeps the PostgreSQL `support_tickets` `approval_token` validation gate and immutable `audit_log` writes completely unchanged.
+- **Unverified Without a Live Billed & Sandbox GCP Project (Verified via Contract Tests/Fakes Only)**:
+  - Live BigQuery Sandbox (`no billing`) DML error rejection and live `CREATE OR REPLACE TABLE ... AS SELECT` fallback execution against real BigQuery tables in `BQ_DATASET` / `BQ_SANDBOX_DATASET`.
+  - Live `load_table_from_json` batch loads into `quality_reports`, `schema_metadata`, `document_embeddings`, and `code_rag` tables, plus live `load_table_from_uri` from GCS Parquet.
+  - Live BigQuery `VECTOR_SEARCH` queries and `CREATE VECTOR INDEX` behavior (`BQ_VECTOR_DATASET`).
+  - Live Vertex AI Gemini chat & 768-D embedding API responses over ADC (`LLM_BACKEND=vertexai`, `EMBEDDING_BACKEND=vertexai`).

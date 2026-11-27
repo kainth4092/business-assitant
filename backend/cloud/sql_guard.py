@@ -4,7 +4,7 @@ Enforces read-only single-SELECT safety across both PostgreSQL and BigQuery.
 """
 
 import re
-from typing import Set
+from typing import Dict, List, Optional, Set, Tuple
 
 PROHIBITED_SQL_KEYWORDS: Set[str] = {
     "INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "TRUNCATE",
@@ -169,3 +169,195 @@ def adapt_dml_for_bigquery(sql_patch: str, project_id: str, dataset: str, table_
     if "WHERE" not in bq_patch.upper():
         bq_patch = f"{bq_patch} WHERE TRUE"
     return bq_patch
+
+
+def is_bigquery_sandbox_dml_error(exc: Exception) -> bool:
+    """
+    Detect BigQuery Sandbox (no-billing / free-tier) errors rejecting DML or streaming inserts.
+    """
+    msg = str(exc).lower()
+    if "billing has not been enabled" in msg or "enable billing" in msg:
+        return True
+    if "free tier" in msg and ("dml" in msg or "streaming" in msg or "not allowed" in msg):
+        return True
+    if "dml" in msg and ("sandbox" in msg or "not supported" in msg or "billing" in msg):
+        return True
+    return False
+
+
+def _split_top_level(text: str, delimiter: str = ",") -> List[str]:
+    """Split `text` on `delimiter` only outside quotes, backticks, and parentheses."""
+    parts: List[str] = []
+    buf: List[str] = []
+    depth = 0
+    in_single = False
+    in_double = False
+    in_backtick = False
+    escape = False
+
+    for ch in text:
+        if escape:
+            buf.append(ch)
+            escape = False
+            continue
+        if ch == "\\" and in_single:
+            buf.append(ch)
+            escape = True
+            continue
+        if ch == "'" and not in_double and not in_backtick:
+            in_single = not in_single
+        elif ch == '"' and not in_single and not in_backtick:
+            in_double = not in_double
+        elif ch == "`" and not in_single and not in_double:
+            in_backtick = not in_backtick
+        elif not in_single and not in_double and not in_backtick:
+            if ch == "(":
+                depth += 1
+            elif ch == ")" and depth > 0:
+                depth -= 1
+            elif ch == delimiter and depth == 0:
+                parts.append("".join(buf).strip())
+                buf = []
+                continue
+        buf.append(ch)
+
+    tail = "".join(buf).strip()
+    if tail:
+        parts.append(tail)
+    return parts
+
+
+def _find_top_level_keyword(text: str, keyword: str) -> int:
+    """Return index of top-level SQL keyword (outside quotes/backticks/parens), or -1."""
+    upper = text.upper()
+    kw = keyword.upper()
+    kw_len = len(kw)
+    depth = 0
+    in_single = False
+    in_double = False
+    in_backtick = False
+    escape = False
+    i = 0
+    n = len(text)
+
+    while i < n:
+        ch = text[i]
+        if escape:
+            escape = False
+            i += 1
+            continue
+        if ch == "\\" and in_single:
+            escape = True
+            i += 1
+            continue
+        if ch == "'" and not in_double and not in_backtick:
+            in_single = not in_single
+        elif ch == '"' and not in_single and not in_backtick:
+            in_double = not in_double
+        elif ch == "`" and not in_single and not in_double:
+            in_backtick = not in_backtick
+        elif not in_single and not in_double and not in_backtick:
+            if ch == "(":
+                depth += 1
+            elif ch == ")" and depth > 0:
+                depth -= 1
+            elif depth == 0 and upper[i:i + kw_len] == kw:
+                before_ok = (i == 0) or not (text[i - 1].isalnum() or text[i - 1] == "_")
+                after_idx = i + kw_len
+                after_ok = (after_idx >= n) or not (text[after_idx].isalnum() or text[after_idx] == "_")
+                if before_ok and after_ok:
+                    return i
+        i += 1
+    return -1
+
+
+def _to_bq_identifiers(sql_fragment: str) -> str:
+    """Convert double-quoted identifiers outside single-quoted literals to backticks."""
+    parts = re.split(r"('(?:[^'\\]|\\.)*')", sql_fragment)
+    out = []
+    for idx, part in enumerate(parts):
+        if idx % 2 == 1:
+            out.append(part)
+        else:
+            out.append(re.sub(r'"([A-Za-z_][A-Za-z0-9_]*)"', r"`\1`", part))
+    return "".join(out)
+
+
+def parse_update_patch_for_ctas(sql_patch: str) -> Tuple[Dict[str, str], Optional[str]]:
+    """
+    Parse a validated single-table `UPDATE <table> SET <col>=<expr>, ... [WHERE <cond>]`
+    into `(assignments_by_col, where_condition)` normalized for BigQuery Standard SQL.
+    """
+    cleaned = validate_dml_patch(sql_patch, allowed_table="sales_sandbox")
+    bq_text = _to_bq_identifiers(cleaned)
+
+    set_idx = _find_top_level_keyword(bq_text, "SET")
+    if set_idx < 0:
+        raise ValueError("Cannot convert UPDATE to CTAS fallback: missing SET clause.")
+
+    after_set = bq_text[set_idx + 3:].strip()
+    where_idx = _find_top_level_keyword(after_set, "WHERE")
+    if where_idx >= 0:
+        set_clause = after_set[:where_idx].strip()
+        where_clause = after_set[where_idx + 5:].strip() or None
+    else:
+        set_clause = after_set
+        where_clause = None
+
+    assignments: Dict[str, str] = {}
+    for item in _split_top_level(set_clause, ","):
+        eq_parts = _split_top_level(item, "=")
+        if len(eq_parts) != 2:
+            raise ValueError(f"Cannot parse SET assignment '{item}' for CTAS fallback.")
+        col_name = eq_parts[0].strip().strip("`").strip('"')
+        expr = eq_parts[1].strip()
+        if not col_name or not expr:
+            raise ValueError(f"Invalid SET assignment '{item}' for CTAS fallback.")
+        assignments[col_name] = expr
+
+    if not assignments:
+        raise ValueError("No column assignments found in UPDATE patch for CTAS fallback.")
+    return assignments, where_clause
+
+
+def build_ctas_from_update(
+    sql_patch: str,
+    table_columns: List[str],
+    source_fq_table: str,
+    target_fq_table: str,
+) -> Tuple[str, str]:
+    """
+    Translate a single-table UPDATE patch into a BigQuery Sandbox-compatible
+    `(count_affected_sql, CREATE OR REPLACE TABLE ... AS SELECT ...)` pair.
+    """
+    if not table_columns:
+        raise ValueError("Cannot build CTAS fallback without source table column metadata.")
+
+    assignments, where_clause = parse_update_patch_for_ctas(sql_patch)
+    assignments_lower = {k.lower(): v for k, v in assignments.items()}
+    known_lower = {c.lower() for c in table_columns}
+    unknown = [k for k in assignments if k.lower() not in known_lower]
+    if unknown:
+        raise ValueError(f"CTAS fallback rejected unknown column(s): {', '.join(unknown)}")
+
+    select_exprs: List[str] = []
+    for col in table_columns:
+        key = col.lower()
+        if key in assignments_lower:
+            new_expr = assignments_lower[key]
+            if where_clause and where_clause.upper() != "TRUE":
+                select_exprs.append(
+                    f"CASE WHEN ({where_clause}) THEN ({new_expr}) ELSE `{col}` END AS `{col}`"
+                )
+            else:
+                select_exprs.append(f"({new_expr}) AS `{col}`")
+        else:
+            select_exprs.append(f"`{col}`")
+
+    where_pred = where_clause or "TRUE"
+    count_sql = f"SELECT COUNT(*) AS affected FROM `{source_fq_table}` WHERE {where_pred}"
+    ctas_sql = (
+        f"CREATE OR REPLACE TABLE `{target_fq_table}` AS "
+        f"SELECT {', '.join(select_exprs)} FROM `{source_fq_table}`"
+    )
+    return count_sql, ctas_sql

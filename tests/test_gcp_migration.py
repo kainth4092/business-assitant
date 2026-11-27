@@ -40,7 +40,11 @@ from backend.cloud.gcp_storage import GcsFileStore
 from backend.cloud.gcp_vector import BigQueryCodeVectorStore, BigQueryVectorStore
 from backend.cloud.interfaces import CloudPrivacyError
 from backend.cloud.local_impl import LocalFileStore, PgVectorStore, PostgresSalesStore
-from backend.cloud.sql_guard import rewrite_sql_for_bigquery
+from backend.cloud.sql_guard import (
+    build_ctas_from_update,
+    is_bigquery_sandbox_dml_error,
+    rewrite_sql_for_bigquery,
+)
 from backend.main import app
 from project_init.chunker import CodeChunk
 from project_init.config import get_project_config
@@ -343,7 +347,9 @@ def test_bigquery_load_parquet_and_sandbox_isolation():
     assert load_res["status"] == "SUCCESS"
     assert fake_bq.load_uri_calls[0]["source_uri"] == "gs://my-bucket/clean/cleaned_sales.parquet/*.parquet"
     assert fake_bq.copy_calls[0]["dst"] == "my-proj.fixdesk_sandbox.sales_sandbox"
-    assert len(fake_bq.insert_json_calls) == 2  # quality_reports + schema_metadata
+    # quality_reports & schema_metadata must use batch load jobs (not streaming insert_rows_json)
+    assert len(fake_bq.insert_json_calls) == 0
+    assert len(fake_bq.load_json_calls) == 2
 
     # Preview runs strictly on fixdesk_sandbox, never production fixdesk
     preview = store.preview_data_fix(
@@ -354,6 +360,99 @@ def test_bigquery_load_parquet_and_sandbox_isolation():
     assert preview["target_table"] == "fixdesk_sandbox.sales_sandbox"
     assert "`my-proj.fixdesk_sandbox.sales_sandbox`" in preview["sql_applied_to_sandbox"]
     assert "`my-proj.fixdesk.sales`" not in preview["sql_applied_to_sandbox"]
+
+
+def test_bigquery_sandbox_dml_fallback_to_ctas():
+    assert is_bigquery_sandbox_dml_error(
+        RuntimeError("403 Billing has not been enabled for this project. DML queries are not allowed in the free tier.")
+    )
+    assert is_bigquery_sandbox_dml_error(
+        RuntimeError("Streaming insert is not allowed in the free tier")
+    )
+    assert not is_bigquery_sandbox_dml_error(RuntimeError("Syntax error at line 1"))
+
+    count_sql, ctas_sql = build_ctas_from_update(
+        sql_patch='UPDATE sales SET "item_type" = TRIM(UPPER("item_type")) WHERE "item_type" IS NOT NULL',
+        table_columns=["item_type", "item_outlet_sales"],
+        source_fq_table="my-proj.fixdesk.sales",
+        target_fq_table="my-proj.fixdesk_sandbox.sales_sandbox",
+    )
+    assert "SELECT COUNT(*) AS affected FROM `my-proj.fixdesk.sales` WHERE `item_type` IS NOT NULL" == count_sql
+    assert ctas_sql.startswith("CREATE OR REPLACE TABLE `my-proj.fixdesk_sandbox.sales_sandbox` AS SELECT ")
+    assert "CASE WHEN (`item_type` IS NOT NULL) THEN (TRIM(UPPER(`item_type`))) ELSE `item_type` END AS `item_type`" in ctas_sql
+    assert "`item_outlet_sales`" in ctas_sql
+
+    class _SandboxFakeBQ(_FakeBigQueryClient):
+        def query(self, sql: str, job_config=None):
+            is_dry = bool(getattr(job_config, "dry_run", False))
+            self.queries.append({"sql": sql, "dry_run": is_dry, "job_config": job_config})
+            if not is_dry and sql.strip().upper().startswith("UPDATE"):
+                raise RuntimeError(
+                    "403 Billing has not been enabled for this project. DML queries are not allowed in the free tier."
+                )
+            if not is_dry and "SELECT COUNT(*) AS affected" in sql:
+                return _FakeBQJob(rows=[{"affected": 4}])
+            if is_dry:
+                return _FakeBQJob(total_bytes_processed=1024)
+            if "COUNT(*) AS total" in sql:
+                return _FakeBQJob(rows=[{"total": 10}])
+            return _FakeBQJob(rows=self.query_rows)
+
+    sandbox_bq = _SandboxFakeBQ(project="my-proj")
+    store = BigQuerySalesStore(
+        project_id="my-proj",
+        dataset="fixdesk",
+        sandbox_dataset="fixdesk_sandbox",
+        client=sandbox_bq,
+    )
+
+    preview = store.preview_data_fix(
+        sql_patch='UPDATE sales SET "item_type" = TRIM(UPPER("item_type")) WHERE "item_type" IS NOT NULL',
+        ticket_id="tkt_sandbox",
+    )
+    assert preview["status"] == "SUCCESS"
+    assert preview["sandbox_mode_fallback"] is True
+    assert preview["execution_mode"] == "ctas_sandbox_fallback"
+    assert preview["rows_affected"] == 4
+    assert "CREATE OR REPLACE TABLE `my-proj.fixdesk_sandbox.sales_sandbox` AS SELECT" in preview["sql_applied_to_sandbox"]
+    assert "BigQuery Sandbox mode" in preview["fallback_note"]
+
+    applied = store.apply_data_fix(
+        sql_patch='UPDATE sales SET "item_type" = TRIM(UPPER("item_type")) WHERE "item_type" IS NOT NULL'
+    )
+    assert applied["sandbox_mode_fallback"] is True
+    assert applied["execution_mode"] == "ctas_sandbox_fallback"
+    assert applied["rows_affected"] == 4
+    assert "BigQuery Sandbox mode" in applied["fallback_note"]
+    assert any(
+        "CREATE OR REPLACE TABLE `my-proj.fixdesk.sales` AS SELECT" in q["sql"]
+        for q in sandbox_bq.queries
+    )
+
+
+def test_bigquery_code_vector_store_uses_load_jobs_and_ctas_fallback():
+    class _SandboxCodeBQ(_FakeBigQueryClient):
+        def query(self, sql: str, job_config=None):
+            self.queries.append({"sql": sql, "dry_run": False, "job_config": job_config})
+            upper = sql.strip().upper()
+            if upper.startswith("DELETE") or upper.startswith("UPDATE"):
+                raise RuntimeError("DML queries are not allowed in the free tier.")
+            if "SELECT COUNT(*) AS C" in upper:
+                return _FakeBQJob(rows=[{"c": 2}])
+            return _FakeBQJob(rows=[])
+
+    sb_bq = _SandboxCodeBQ(project="my-proj")
+    code_store = BigQueryCodeVectorStore(project_id="my-proj", dataset="fixdesk_vectors", client=sb_bq)
+    code_store.upsert_project("demo", "/tmp/demo", "main")
+    code_store.save_cached_summaries({"h1": "summary 1"})
+    code_store.replace_skipped_files("demo", [{"file_path": ".env", "reason": "secret", "rule": "env"}])
+    counts = code_store.refresh_project_counts("demo", "abc123")
+
+    assert counts == {"file_count": 2, "chunk_count": 2, "skipped_count": 2}
+    # Zero streaming inserts anywhere
+    assert len(sb_bq.insert_json_calls) == 0
+    assert len(sb_bq.load_json_calls) == 3  # code_projects, code_summary_cache, code_skipped_files
+    assert any("CREATE OR REPLACE TABLE `my-proj.fixdesk_vectors.code_projects` AS" in q["sql"] for q in sb_bq.queries)
 
 
 # ------------------------------------------------------------------------------
@@ -385,6 +484,7 @@ def test_bigquery_vector_store_contract():
     embeddings = [[0.1] * 768]
     count = vec_store.upsert_document_chunks(chunks, embeddings)
     assert count == 1
+    assert not any("TRUNCATE TABLE" in q["sql"] for q in fake_bq.queries)
     assert any("CREATE VECTOR INDEX IF NOT EXISTS" in q["sql"] for q in fake_bq.queries)
     assert len(fake_bq.load_json_calls[0]["rows"][0]["embedding"]) == 768
 

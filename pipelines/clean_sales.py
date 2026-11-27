@@ -17,10 +17,13 @@ This pipeline operates on ANY uploaded CSV file placed in /data:
 
 import os
 import re
+import sys
 import json
 import logging
 from typing import Dict, Any, List, Optional
 from dotenv import load_dotenv
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 load_dotenv()
 
@@ -59,6 +62,7 @@ def create_spark_session(app_name: str = "UniversalDataETL") -> SparkSession:
                 "--add-opens=java.base/java.nio=ALL-UNNAMED "
                 "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED")
         .config("spark.sql.shuffle.partitions", "4")
+        .config("spark.sql.parquet.outputTimestampType", "TIMESTAMP_MICROS")
     )
     
     if os.path.exists(jar_path):
@@ -138,8 +142,14 @@ def run_sales_pipeline(
     logger.info(f"Target dataset: {input_csv} (local Spark path: {local_csv_path})")
     spark = create_spark_session()
 
-    # 2. Read with schema inference
-    raw_df = spark.read.csv(local_csv_path, header=True, inferSchema=True)
+    # 2. Read with schema inference (supports multi-line quoted text fields)
+    raw_df = spark.read.csv(
+        local_csv_path,
+        header=True,
+        inferSchema=True,
+        multiLine=True,
+        escape='"',
+    )
     raw_total_rows = raw_df.count()
     raw_distinct_rows = raw_df.dropDuplicates().count()
     duplicate_rows_detected = raw_total_rows - raw_distinct_rows

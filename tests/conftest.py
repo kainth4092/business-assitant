@@ -34,6 +34,17 @@ os.environ["READONLY_DATABASE_URL"] = TEST_READONLY_URL
 if os.environ.get("RUN_LIVE_GEMINI_TESTS", "").strip() != "1":
     os.environ["GOOGLE_API_KEY"] = ""
 
+# Prevent automated pytest runs from calling live GCP / BigQuery / Vertex AI unless explicitly requested
+if os.environ.get("RUN_LIVE_GCP_TESTS", "").strip() != "1":
+    os.environ["STORAGE_BACKEND"] = "local"
+    os.environ["VECTOR_BACKEND"] = "local"
+    os.environ["FILE_STORE_BACKEND"] = "local"
+    os.environ["LLM_BACKEND"] = "gemini_api"
+    os.environ["EMBEDDING_BACKEND"] = "gemini_api"
+    os.environ["DOCUMENT_RAG_BACKEND"] = "default"
+    os.environ["GCP_PROJECT_ID"] = ""
+    os.environ["GCS_BUCKET"] = ""
+
 
 def pytest_configure(config):
     """
