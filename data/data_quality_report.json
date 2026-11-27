@@ -1,0 +1,111 @@
+{
+  "status": "SUCCESS",
+  "pipeline": "PySpark Universal CSV Cleaning & Quality Audit",
+  "input_dataset": "reviews.csv",
+  "records_profile": {
+    "raw_total_rows": 46105,
+    "duplicate_rows_removed": 0,
+    "cleaned_total_rows": 46105,
+    "column_count": 5,
+    "numeric_column_count": 1,
+    "categorical_column_count": 3
+  },
+  "null_imputation_summary": {
+    "total_nulls_before": 0,
+    "total_nulls_after": 0,
+    "columns_imputed": []
+  },
+  "columns_profile": [
+    {
+      "name": "platform",
+      "type": "StringType()",
+      "nulls_before": 0,
+      "nulls_after": 0
+    },
+    {
+      "name": "review_id",
+      "type": "StringType()",
+      "nulls_before": 0,
+      "nulls_after": 0
+    },
+    {
+      "name": "published_date",
+      "type": "DateType()",
+      "nulls_before": 0,
+      "nulls_after": 0
+    },
+    {
+      "name": "score",
+      "type": "DoubleType()",
+      "nulls_before": 0,
+      "nulls_after": 0
+    },
+    {
+      "name": "review_text",
+      "type": "StringType()",
+      "nulls_before": 0,
+      "nulls_after": 0
+    }
+  ],
+  "numeric_summaries": {
+    "score": {
+      "min": 0.0,
+      "max": 10.0,
+      "avg": 4.97,
+      "sum": 229116.0
+    }
+  },
+  "categorical_summaries": {
+    "platform": {
+      "distinct_count": 2,
+      "top_values": [
+        {
+          "playstation-5": 41607
+        },
+        {
+          "xbox-series-x": 4498
+        }
+      ]
+    },
+    "review_id": {
+      "distinct_count": 45064,
+      "top_values": [
+        {
+          "mc-profile-23f23e2e2c17b24f6a0ca61bf4171bbb2e36d0f213ccda57ad7815055bd287c3": 2
+        },
+        {
+          "mc-profile-72d60a484144b58efb873affe20bd5b426a66e6cbf90f0da75a12ee20ff5649a": 2
+        },
+        {
+          "mc-profile-72912d63c1c36233a6a7122dddea59256bd4caff13a878de3fc27bdd9835e10b": 2
+        },
+        {
+          "mc-profile-3539a277891a4684f59960e1e2867e4915a4a0d0d51cd17f3ddd5b4d7fda29a0": 2
+        },
+        {
+          "mc-profile-029c40d1271325df697f236b81ae32bb1ce714c1ef223e04aaaea1868aceb067": 2
+        }
+      ]
+    },
+    "review_text": {
+      "distinct_count": 45538,
+      "top_values": [
+        {
+          "The game was very mediocre, i wasnt enjoying it much and whished for a much better game i never got": 6
+        },
+        {
+          "Dan Houser, please come back\u2014you and your team! This game is only named GTA, but it doesn't have the GTA soul.": 4
+        },
+        {
+          "GTA6 is incredible and, despite many hours put in, I feel like I\u2019ve barely scratched the surface.": 4
+        },
+        {
+          "Unplayable 30fps + $100 + full of stupid glitches + lots of porn. I can't enjoy it unless I'm playing alone. It's honestly pointless.": 4
+        },
+        {
+          "Greatest Game of all times, people will tell you otherwise because of bugs and some missions being boring, don't listen to them, the game combines hyper realism and major gta series features, the game is the best.": 4
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "table_name": "sales",
+  "dataset_name": "reviews.csv",
+  "row_count": 46105,
+  "columns": [
+    {
+      "name": "platform",
+      "type": "TEXT",
+      "is_numeric": false,
+      "is_categorical": true
+    },
+    {
+      "name": "review_id",
+      "type": "TEXT",
+      "is_numeric": false,
+      "is_categorical": true
+    },
+    {
+      "name": "published_date",
+      "type": "DATE",
+      "is_numeric": false,
+      "is_categorical": false
+    },
+    {
+      "name": "score",
+      "type": "NUMERIC(14, 4)",
+      "is_numeric": true,
+      "is_categorical": false
+    },
+    {
+      "name": "review_text",
+      "type": "TEXT",
+      "is_numeric": false,
+      "is_categorical": true
+    }
+  ],
+  "numeric_columns": [
+    "score"
+  ],
+  "categorical_columns": [
+    "platform",
+    "review_id",
+    "review_text"
+  ],
+  "sample_rows": [
+    {
+      "platform": "playstation-5",
+      "review_id": "mc-profile-c31faf073d78624ca26a857a850c0c3c034d75263d5cc079b1ed786ccb584690",
+      "published_date": "2026-11-21",
+      "score": 3.0,
+      "review_text": "This is not GTA and hardly a game itself. The developers should be ashamed for disgracing the spirit of GTA by shoving down their agenda."
+    },
+    {
+      "platform": "playstation-5",
+      "review_id": "mc-profile-2086a88a83273bdb3234b349bf610abab709d8fa919e392bf1d57cef8d438282",
+      "published_date": "2026-11-21",
+      "score": 3.0,
+      "review_text": "having played 30+ hours the game is highly disappointing. visually and audio wise the game is spectacular then you get to everything else. story is slow especially early on. characters are wholly dislikeable especially the two main protagonists. Lucia has basically no redeeming qualities aside from her looks. Jason is like muscular man puppy dog running errands when he's supposed to be a hardened street criminal. the world for something so big and open feels distinctly linear because missions are so restrictive. restrictions on what cars u can jack, who can shoot and what vices u can do is very un-gta like. it's the first gta game where I felt genuinely bored for long periods. the game completely lacks that gta chaos feel and u actively get punished for trying to play it like  sandbox. there are also numerous bugs that up throughout, wall glitches, strange cut scene glitches, floating character etc some of the gameplay is so stiff and clunky feeling u wouldn't believe it was next gen. the game feels less like gta and more like some weird gta sidekick lite spinoff with a romance simp simulator pack added on. \n\n13 years I waited for this. felt so disappointed its the first time I had to actually leave a review. if you're a causal gamer with no gta ties then the game is decent enough. if you're a gta fan then u will be disappointed especially at this price and hype point."
+    },
+    {
+      "platform": "playstation-5",
+      "review_id": "mc-profile-2d301217ff8fd01890cd2f3202f20a7bcb077f719c43a681038b3ed6fcc4647a",
+      "published_date": "2026-11-21",
+      "score": 10.0,
+      "review_text": "\u0418\u0433\u0440\u0430 \u0448\u0438\u043a\u0430\u0440\u043d\u0430\u044f, \u043e\u0434\u043d\u043e\u0437\u043d\u0430\u0447\u043d\u043e \u043b\u0443\u0447\u0448\u0430\u044f \u0447\u0430\u0441\u0442\u044c \u0432 \u0441\u0435\u0440\u0438\u0438. \u0412\u043f\u0435\u0440\u0432\u044b\u0435 \u043e\u0441\u0442\u0430\u0432\u043b\u044f\u044e \u0442\u0443\u0442 \u043e\u0442\u0437\u044b\u0432 \u0447\u0442\u043e\u0431\u044b \u0437\u0430\u0433\u0430\u0441\u0438\u0442\u044c \u0434\u043e\u043b\u0431\u043e\u0435\u0431\u043e\u0432 \u043a\u043e\u0442\u043e\u0440\u044b\u0435 \u043f\u043e\u0441\u0442\u0430\u0432\u0438\u043b\u0438 \u043d\u0438\u0436\u0435 8 \u0431\u0430\u043b\u043b\u043e\u0432)"
+    }
+  ]
+}
