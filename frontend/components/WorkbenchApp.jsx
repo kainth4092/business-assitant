@@ -718,6 +718,29 @@ export default function WorkbenchApp() {
 
         {/* Main Workspace Canvas */}
         <main className="flex-1 flex flex-col px-3 py-4 sm:px-6 lg:px-8 w-full min-w-0">
+          {(systemHealth?.ai_budget?.warning_active || systemHealth?.ai_budget?.limit_reached) && (
+            <div
+              role="status"
+              data-testid="ai-budget-banner"
+              className={`mb-4 max-w-4xl mx-auto w-full px-3 py-2 rounded-xs border font-mono text-[11.5px] flex items-center justify-between gap-3 ${
+                systemHealth.ai_budget.limit_reached
+                  ? "border-seal bg-seal-tint text-seal-ink"
+                  : "border-amber bg-amber-tint text-amber-ink"
+              }`}
+            >
+              <span>
+                <strong>
+                  {systemHealth.ai_budget.limit_reached ? "AI BUDGET LIMIT REACHED" : "AI BUDGET WARNING"}:
+                </strong>{" "}
+                {systemHealth.ai_budget.message ||
+                  `${systemHealth.ai_budget.requests_used}/${systemHealth.ai_budget.request_limit} requests, ${systemHealth.ai_budget.tokens_used}/${systemHealth.ai_budget.token_limit} tokens used today.`}
+              </span>
+              <span className="shrink-0 tabular-mono font-bold">
+                {Math.round((systemHealth.ai_budget.usage_ratio || 0) * 100)}%
+              </span>
+            </div>
+          )}
+
           {errorBanner && (
             <div className="mb-4 max-w-4xl mx-auto w-full">
               <ErrorState

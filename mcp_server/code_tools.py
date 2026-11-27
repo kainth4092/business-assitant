@@ -48,7 +48,9 @@ def list_projects(
     store: Optional[Any] = None,
 ) -> str:
     """List configured projects and their latest indexing telemetry (read-only)."""
-    active_store = store or PostgresCodeStore()
+    from backend.cloud.factories import get_code_store
+
+    active_store = store or get_code_store(config_path=config_path)
     configs = load_projects_config(config_path=config_path)
     indexed_by_name: Dict[str, Dict[str, Any]] = {}
     try:
@@ -115,7 +117,9 @@ def get_file_outline(
         safe_path = _ensure_allowed_project_file(project, file_path, config_path=config_path)
         rel_path = safe_path.relative_to(cfg.root_path).as_posix()
 
-        active_store = store or PostgresCodeStore()
+        from backend.cloud.factories import get_code_store
+
+        active_store = store or get_code_store(project_name=project, config_path=config_path)
         try:
             outline = active_store.get_file_outline(project, rel_path)
         except Exception:
@@ -153,7 +157,9 @@ def find_symbol(
     try:
         cfg = get_project_config(project, config_path=config_path)
         gitignore_spec = load_gitignore_spec(cfg.root_path)
-        active_store = store or PostgresCodeStore()
+        from backend.cloud.factories import get_code_store
+
+        active_store = store or get_code_store(project_name=project, config_path=config_path)
         matches = active_store.find_symbol(project, symbol_name, limit=max(1, min(int(limit), 30)))
 
         safe_matches: List[Dict[str, Any]] = []

@@ -10,14 +10,13 @@ import re
 import glob
 import logging
 from typing import List, Dict, Any
-import psycopg2
-from psycopg2.extras import execute_batch
 from dotenv import load_dotenv
 
 # Set PYTHONPATH awareness
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from backend.cloud.factories import get_file_store, get_vector_store
 from backend.rag.embeddings import get_texts_embeddings
 
 load_dotenv()
@@ -171,21 +170,33 @@ def is_user_policy_doc(filename: str) -> bool:
 def ingest_all_docs(docs_dir: str = "docs") -> int:
     """
     Main ingestion execution function. Dynamically discovers all policy and documentation files (.md, .txt, .pdf)
-    in docs_dir, parses sections, computes vector embeddings, and stores them in PostgreSQL pgvector.
+    in docs_dir (and GCS `docs/` when FILE_STORE_BACKEND=gcp), parses sections, computes 768-D embeddings,
+    and stores them in the active VectorStore (pgvector locally or BigQuery Vector Search on GCP).
     """
     logger.info(f"Scanning for documentation files in: {docs_dir}")
-    
-    # Discover all user documentation files (.md, .txt, .pdf), ignoring repo/setup docs
+    file_store = get_file_store()
+
+    # Discover all local user documentation files (.md, .txt, .pdf), ignoring repo/setup docs
     patterns = [os.path.join(docs_dir, "*.md"), os.path.join(docs_dir, "*.txt"), os.path.join(docs_dir, "*.pdf")]
     all_files = []
     for p in patterns:
         all_files.extend(glob.glob(p))
     doc_paths = sorted([f for f in all_files if is_user_policy_doc(f)])
-    
+    known_names = {os.path.basename(p) for p in doc_paths}
+
+    if file_store.backend_name == "gcp":
+        for remote_uri in file_store.list_files("docs", extensions=(".md", ".txt", ".pdf")):
+            remote_name = os.path.basename(remote_uri)
+            if not is_user_policy_doc(remote_name) or remote_name in known_names:
+                continue
+            local_copy = file_store.ensure_local_copy(remote_uri)
+            doc_paths.append(local_copy)
+            known_names.add(remote_name)
+
     if not doc_paths:
-        logger.warning(f"No user documents discovered in {docs_dir}.")
+        logger.warning(f"No user documents discovered in {docs_dir} or GCS docs/.")
         return 0
-        
+
     all_chunks = []
     for doc_path in doc_paths:
         doc_name = os.path.basename(doc_path)
@@ -193,63 +204,21 @@ def ingest_all_docs(docs_dir: str = "docs") -> int:
         doc_chunks = chunk_sections(sections, doc_name)
         all_chunks.extend(doc_chunks)
         logger.info(f"Parsed {len(doc_chunks)} chunks from {doc_name}")
-        
+
     if not all_chunks:
         logger.error("No chunks extracted from documents. Exiting.")
         return 0
-        
+
     logger.info(f"Total chunks across all documents: {len(all_chunks)}. Computing embeddings...")
-    
+
     # Compute embeddings
     texts = [c["content"] for c in all_chunks]
     embeddings = get_texts_embeddings(texts)
-    
-    # Connect to PostgreSQL with read-write user
-    db_url = os.environ.get(
-        "DATABASE_URL",
-        "postgresql://postgres:postgres_password@localhost:5434/fixdesk"
-    )
-    
-    conn = psycopg2.connect(db_url)
-    cursor = conn.cursor()
-    
-    # Clean stale embeddings on fresh batch ingestion
-    cursor.execute("TRUNCATE TABLE document_embeddings;")
-    conn.commit()
-    
-    insert_sql = """
-        INSERT INTO document_embeddings (
-            chunk_id, source_file, title, content, chunk_index, total_chunks, embedding
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s::vector)
-        ON CONFLICT (chunk_id) DO UPDATE SET
-            source_file = EXCLUDED.source_file,
-            title = EXCLUDED.title,
-            content = EXCLUDED.content,
-            chunk_index = EXCLUDED.chunk_index,
-            total_chunks = EXCLUDED.total_chunks,
-            embedding = EXCLUDED.embedding;
-    """
-    
-    records = []
-    for chunk, emb in zip(all_chunks, embeddings):
-        vector_str = "[" + ",".join(f"{x:.8f}" for x in emb) + "]"
-        records.append((
-            chunk["chunk_id"],
-            chunk["source_file"],
-            chunk["title"],
-            chunk["content"],
-            chunk["chunk_index"],
-            chunk["total_chunks"],
-            vector_str
-        ))
-        
-    execute_batch(cursor, insert_sql, records, page_size=100)
-    conn.commit()
-    cursor.close()
-    conn.close()
-    
-    logger.info(f"Successfully ingested and indexed {len(records)} document chunks into pgvector!")
-    return len(records)
+
+    vector_store = get_vector_store()
+    inserted = vector_store.upsert_document_chunks(all_chunks, embeddings)
+    logger.info(f"Successfully ingested and indexed {inserted} document chunks into {vector_store.backend_name} VectorStore!")
+    return inserted
 
 if __name__ == "__main__":
     ingest_all_docs()

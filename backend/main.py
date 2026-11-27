@@ -99,39 +99,45 @@ class ChatResponse(BaseModel):
 @app.get("/health", status_code=status.HTTP_200_OK)
 def get_system_status():
     """
-    Returns real live telemetry:
-    - PostgreSQL connection status
-    - Exact sales records count from PostgreSQL
-    - Exact document chunks count from pgvector
-    - Available tools introspected from MCP server
-    - Active LLM and embedding models
-    - Vector dimensions
+    Returns real live telemetry across active local or GCP backends:
+    - Active storage, vector, file store, LLM, and embedding backend flags
+    - Sales records count & indexed document chunks count
+    - ADC readiness & daily AI budget status
     """
-    db_status = "disconnected"
-    sales_count = 0
-    vector_chunks_count = 0
-    vector_extension_ready = False
-    
+    from backend.cloud.auth import check_adc_status
+    from backend.cloud.budget import get_budget_status
+    from backend.cloud.config import get_document_rag_backend
+    from backend.cloud.factories import (
+        get_embedding_client,
+        get_file_store,
+        get_llm_client,
+        get_sales_store,
+        get_vector_store,
+    )
+
+    sales_store = get_sales_store()
+    vector_store = get_vector_store()
+    file_store = get_file_store()
+
+    sales_health = sales_store.health_check()
+    vec_health = vector_store.health_check()
+
+    db_status = sales_health.get("database", "disconnected")
+    sales_count = int(sales_health.get("sales_records", 0) or 0)
+    vector_chunks_count = int(vec_health.get("indexed_chunks", 0) or 0)
+    vector_extension_ready = bool(vec_health.get("pgvector_ready", False))
+
+    llm_client = None
     try:
-        conn = get_db_connection(readonly=True)
-        cursor = conn.cursor()
-        cursor.execute("SELECT count(*) FROM sales;")
-        sales_count = cursor.fetchone()[0]
-        cursor.execute("SELECT count(*) FROM document_embeddings;")
-        vector_chunks_count = cursor.fetchone()[0]
-        cursor.execute("SELECT extname FROM pg_extension WHERE extname = 'vector';")
-        ext = cursor.fetchone()
-        vector_extension_ready = bool(ext)
-        cursor.close()
-        conn.close()
-        db_status = "connected"
-    except Exception as e:
-        logger.error(f"Status check database connection failed: {e}")
-        db_status = f"error: {str(e)}"
-        
-    api_key = os.environ.get("GOOGLE_API_KEY", "").strip()
-    has_live_llm = bool(api_key and not api_key.startswith("your_") and not api_key.startswith("mock_"))
-    
+        llm_client = get_llm_client()
+    except Exception:
+        llm_client = None
+    emb_client = get_embedding_client()
+    has_live_llm = bool(llm_client and llm_client.is_configured())
+
+    adc_status = check_adc_status()
+    budget_status = get_budget_status()
+
     available_tools = [
         {"name": "query_sales", "description": "Read-only SQL query against structured sales data", "type": "sql"},
         {"name": "search_docs", "description": "Semantic search over policy vector embeddings", "type": "rag"},
@@ -141,7 +147,7 @@ def get_system_status():
         {"name": "preview_fix", "description": "Dry-run remediation fix in isolated sandbox", "type": "support"},
         {"name": "apply_fix", "description": "Commit approved remediation to production", "type": "support"}
     ]
-    
+
     return {
         "status": "healthy" if db_status == "connected" else "degraded",
         "database": db_status,
@@ -153,7 +159,15 @@ def get_system_status():
         "llm_live_mode": has_live_llm,
         "llm_model": os.environ.get("LLM_MODEL", "gemini-3.5-flash-lite"),
         "embedding_model": os.environ.get("EMBEDDING_MODEL", "gemini-embedding-2"),
-        "embedding_dimension": 768
+        "embedding_dimension": 768,
+        "storage_backend": sales_store.backend_name,
+        "vector_backend": vector_store.backend_name,
+        "file_store_backend": file_store.backend_name,
+        "llm_backend": llm_client.backend_name if llm_client else "unconfigured",
+        "embedding_backend": emb_client.backend_name,
+        "document_rag_backend": get_document_rag_backend(),
+        "adc_status": adc_status,
+        "ai_budget": budget_status,
     }
 
 @app.post("/chat", response_model=ChatResponse, status_code=status.HTTP_200_OK)
@@ -362,65 +376,45 @@ _SAMPLE_QUESTIONS_CACHE = None
 @app.get("/sample-questions", status_code=status.HTTP_200_OK)
 def get_sample_questions_endpoint():
     """
-    Generates dynamic starter questions strictly from real content:
-    - Automatically introspects categorical and numeric columns from sales table
-    - Queries top distinct values and aggregations
-    - Real document titles from pgvector document_embeddings
-    - Returns an empty list if there is no data or documents loaded yet.
+    Generates dynamic starter questions strictly from real content via active SalesStore & VectorStore.
+    Returns an empty list if there is no data or documents loaded yet.
     """
     global _SAMPLE_QUESTIONS_CACHE
     if _SAMPLE_QUESTIONS_CACHE is not None:
         return {"status": "SUCCESS", "starters": _SAMPLE_QUESTIONS_CACHE}
-        
-    conn = None
+
     try:
+        from backend.cloud.factories import get_sales_store, get_vector_store
         from mcp_server.tools import get_schema_metadata
+
+        sales_store = get_sales_store()
+        vector_store = get_vector_store()
+
         meta = get_schema_metadata()
         cat_cols = meta.get("categorical_columns", [])
         num_cols = meta.get("numeric_columns", [])
-        
-        conn = get_db_connection(readonly=True)
-        cur = conn.cursor(cursor_factory=RealDictCursor)
 
-        # Verify whether sales records or documents actually exist
-        cur.execute("SELECT count(*) as count FROM sales;")
-        sales_row = cur.fetchone()
-        sales_count = sales_row["count"] if sales_row else 0
+        sales_count = sales_store.get_sales_count()
+        doc_count = vector_store.count_chunks()
 
-        cur.execute("SELECT count(*) as count FROM document_embeddings;")
-        doc_count_row = cur.fetchone()
-        doc_count = doc_count_row["count"] if doc_count_row else 0
-
-        # If database has zero records and zero documents, return empty starters
         if sales_count == 0 and doc_count == 0:
             return {"status": "SUCCESS", "starters": []}
-        
+
         starters = []
         num_idx = 1
-        
+
         if sales_count > 0 and (cat_cols or num_cols):
             primary_num = num_cols[0] if num_cols else "id"
             primary_cat = cat_cols[0] if cat_cols else None
-            
+
             top_type_name = None
             second_type_name = None
             if primary_cat:
-                try:
-                    cur.execute(f"""
-                        SELECT "{primary_cat}", count(*) as count
-                        FROM sales
-                        WHERE "{primary_cat}" IS NOT NULL AND "{primary_cat}" != 'Unknown'
-                        GROUP BY "{primary_cat}"
-                        ORDER BY count DESC
-                        LIMIT 2;
-                    """)
-                    rows = cur.fetchall()
-                    if rows:
-                        top_type_name = str(rows[0][primary_cat])
-                    if len(rows) > 1:
-                        second_type_name = str(rows[1][primary_cat])
-                except Exception:
-                    pass
+                top_vals = sales_store.get_top_categorical_values(primary_cat, limit=2)
+                if top_vals:
+                    top_type_name = top_vals[0]
+                if len(top_vals) > 1:
+                    second_type_name = top_vals[1]
 
             if top_type_name:
                 starters.append({
@@ -450,49 +444,34 @@ def get_sample_questions_endpoint():
                     "route": "data"
                 })
                 num_idx += 1
-        
-        # Fetch real document titles from document_embeddings
+
         if doc_count > 0:
-            try:
-                cur.execute("""
-                    SELECT DISTINCT source_file, title
-                    FROM document_embeddings
-                    ORDER BY source_file ASC
-                    LIMIT 2;
-                """)
-                doc_rows = cur.fetchall()
-                for doc in doc_rows:
-                    title = doc.get("title") or doc.get("source_file")
-                    starters.append({
-                        "num": f"{num_idx:02d}",
-                        "label": title,
-                        "caption": f"Searches operational procedures in {doc.get('source_file')}.",
-                        "query": f"What are the key policy guidelines outlined in {doc.get('source_file')}?",
-                        "route": "docs"
-                    })
-                    num_idx += 1
-            except Exception:
-                pass
+            for doc in vector_store.list_indexed_sources()[:2]:
+                title = doc.get("sample_title") or doc.get("source_file")
+                starters.append({
+                    "num": f"{num_idx:02d}",
+                    "label": title,
+                    "caption": f"Searches operational procedures in {doc.get('source_file')}.",
+                    "query": f"What are the key policy guidelines outlined in {doc.get('source_file')}?",
+                    "route": "docs"
+                })
+                num_idx += 1
 
         if sales_count > 0 and doc_count > 0 and starters:
             top_kw = starters[0]["label"].split()[0]
             starters.append({
                 "num": f"{num_idx:02d}",
                 "label": f"{top_kw} & Guidelines",
-                "caption": f"Correlates quantitative metrics with operational policies.",
+                "caption": "Correlates quantitative metrics with operational policies.",
                 "query": f"What are total metrics for {top_kw}, and what operational rules apply?",
                 "route": "both"
             })
-            
-        cur.close()
+
         _SAMPLE_QUESTIONS_CACHE = starters
         return {"status": "SUCCESS", "starters": starters}
     except Exception as e:
         logger.error(f"Error generating dynamic sample questions: {e}")
         return {"status": "ERROR", "error": str(e), "starters": []}
-    finally:
-        if conn:
-            conn.close()
 
 # ------------------------------------------------------------------------------
 # Support Desk Endpoints (Human-in-the-Loop Remediation)
@@ -653,35 +632,34 @@ def reject_support_ticket_endpoint(ticket_id: str, payload: RejectTicketRequest 
 # -----------------------------------------------------------------------------
 @app.post("/upload/csv", status_code=status.HTTP_200_OK)
 async def upload_csv_endpoint(file: UploadFile = File(...)):
-    """Accepts CSV file upload, validates extension, and saves to data/ directory."""
+    """Accepts CSV file upload, validates extension, and saves via active FileStore (data/ or GCS raw/)."""
     if not file.filename.lower().endswith(".csv"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid file format. Only .csv files are supported."
         )
-    
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    data_dir = os.path.join(project_root, "data")
-    os.makedirs(data_dir, exist_ok=True)
-    
-    dest_path = os.path.join(data_dir, file.filename)
+
     try:
+        from backend.cloud.factories import get_file_store
+
         content = await file.read()
         if len(content) == 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Uploaded CSV file is empty."
             )
-        with open(dest_path, "wb") as f:
-            f.write(content)
-            
+        file_store = get_file_store()
+        saved_uri = file_store.save_bytes("raw", file.filename, content)
+
         global _SAMPLE_QUESTIONS_CACHE
         _SAMPLE_QUESTIONS_CACHE = None
-        
+
         return {
             "status": "SUCCESS",
             "message": f"Successfully uploaded CSV '{file.filename}'.",
             "filename": file.filename,
+            "location": saved_uri,
+            "file_store_backend": file_store.backend_name,
             "bytes_received": len(content)
         }
     except HTTPException:
@@ -692,14 +670,18 @@ async def upload_csv_endpoint(file: UploadFile = File(...)):
 
 @app.post("/upload/documents", status_code=status.HTTP_200_OK)
 async def upload_documents_endpoint(files: List[UploadFile] = File(...)):
-    """Accepts multiple document files (.md, .txt, .pdf), validates, saves to docs/, and auto-indexes into pgvector."""
+    """Accepts document files (.md, .txt, .pdf), saves via active FileStore (docs/ or GCS docs/), and auto-indexes."""
+    from backend.cloud.factories import get_file_store
+
     allowed_exts = (".md", ".txt", ".pdf")
     saved = []
-    
+    saved_locations = []
+    file_store = get_file_store()
+
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     docs_dir = os.path.join(project_root, "docs")
     os.makedirs(docs_dir, exist_ok=True)
-    
+
     for file in files:
         ext = os.path.splitext(file.filename)[1].lower()
         if ext not in allowed_exts:
@@ -707,16 +689,15 @@ async def upload_documents_endpoint(files: List[UploadFile] = File(...)):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Unsupported format for '{file.filename}'. Supported formats: .md, .txt, .pdf"
             )
-        dest_path = os.path.join(docs_dir, file.filename)
         content = await file.read()
-        with open(dest_path, "wb") as f:
-            f.write(content)
+        saved_uri = file_store.save_bytes("docs", file.filename, content)
         saved.append(file.filename)
-        
+        saved_locations.append(saved_uri)
+
     global _SAMPLE_QUESTIONS_CACHE
     _SAMPLE_QUESTIONS_CACHE = None
-    
-    # Automatically index documents into pgvector immediately
+
+    # Automatically index documents into active VectorStore immediately
     doc_chunks = 0
     try:
         from pipelines.ingest_docs import ingest_all_docs
@@ -724,23 +705,25 @@ async def upload_documents_endpoint(files: List[UploadFile] = File(...)):
         logger.info(f"Auto-ingested {len(saved)} uploaded files, producing {doc_chunks} vector chunks.")
     except Exception as e:
         logger.error(f"Error auto-ingesting uploaded documents: {e}")
-        
+
     return {
         "status": "SUCCESS",
         "message": f"Successfully uploaded {len(saved)} document(s) and indexed {doc_chunks} vector chunks.",
         "saved_files": saved,
+        "locations": saved_locations,
+        "file_store_backend": file_store.backend_name,
         "indexed_chunks": doc_chunks
     }
 
 @app.post("/pipeline/ingest-docs", status_code=status.HTTP_200_OK)
 def ingest_docs_endpoint():
-    """Ingests and indexes all documents in docs/ into pgvector without re-running PySpark."""
+    """Ingests and indexes all documents in docs/ (and GCS docs/) into active VectorStore."""
     global _SAMPLE_QUESTIONS_CACHE
     _SAMPLE_QUESTIONS_CACHE = None
-    
+
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     docs_dir = os.path.join(project_root, "docs")
-    
+
     try:
         from pipelines.ingest_docs import ingest_all_docs
         chunks = ingest_all_docs(docs_dir=docs_dir)
@@ -758,21 +741,19 @@ def ingest_docs_endpoint():
 
 @app.get("/pipeline/status", status_code=status.HTTP_200_OK)
 def get_pipeline_status_endpoint():
-    """Returns the current state of uploaded files in data/ and docs/."""
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    data_dir = os.path.join(project_root, "data")
-    docs_dir = os.path.join(project_root, "docs")
-    
-    csv_files = []
-    if os.path.exists(data_dir):
-        csv_files = [f for f in os.listdir(data_dir) if f.lower().endswith(".csv") and not f.startswith(".")]
-        
-    doc_files = []
-    if os.path.exists(docs_dir):
-        from pipelines.ingest_docs import is_user_policy_doc
-        doc_files = sorted([f for f in os.listdir(docs_dir) if is_user_policy_doc(f)])
-        
+    """Returns the current state of uploaded files in local/GCS raw/ and docs/."""
+    from backend.cloud.factories import get_file_store
+    from pipelines.ingest_docs import is_user_policy_doc
+
+    file_store = get_file_store()
+    raw_entries = file_store.list_files("raw", extensions=(".csv",))
+    csv_files = [os.path.basename(p) for p in raw_entries]
+
+    doc_entries = file_store.list_files("docs", extensions=(".md", ".txt", ".pdf"))
+    doc_files = sorted([os.path.basename(p) for p in doc_entries if is_user_policy_doc(p)])
+
     return {
+        "file_store_backend": file_store.backend_name,
         "has_csv": len(csv_files) > 0,
         "csv_files": csv_files,
         "primary_csv": csv_files[0] if csv_files else None,
@@ -786,20 +767,22 @@ def run_pipeline_endpoint():
     """Executes the universal PySpark cleaning pipeline and document ingestion."""
     global _SAMPLE_QUESTIONS_CACHE
     _SAMPLE_QUESTIONS_CACHE = None
-    
+
+    from backend.cloud.factories import get_file_store
+
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    data_dir = os.path.join(project_root, "data")
-    csv_files = [f for f in os.listdir(data_dir) if f.lower().endswith(".csv") and not f.startswith(".")] if os.path.exists(data_dir) else []
-    
+    file_store = get_file_store()
+    csv_entries = file_store.list_files("raw", extensions=(".csv",))
+
     pyspark_res = None
-    if csv_files:
+    if csv_entries:
         try:
             from pipelines.clean_sales import run_sales_pipeline
-            pyspark_res = run_sales_pipeline(input_csv=os.path.join(data_dir, csv_files[0]))
+            pyspark_res = run_sales_pipeline(input_csv=csv_entries[0])
         except Exception as e:
             logger.error(f"Error running PySpark pipeline: {e}")
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"PySpark cleaning failed: {str(e)}")
-            
+
     doc_chunks = 0
     try:
         from pipelines.ingest_docs import ingest_all_docs
@@ -807,11 +790,11 @@ def run_pipeline_endpoint():
     except Exception as e:
         logger.error(f"Error ingesting documents: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Document ingestion failed: {str(e)}")
-        
+
     return {
         "status": "SUCCESS",
         "message": "Pipeline and document ingestion completed.",
-        "csv_processed": csv_files[0] if csv_files else None,
+        "csv_processed": os.path.basename(csv_entries[0]) if csv_entries else None,
         "cleaned_records": pyspark_res.get("records_profile", {}).get("cleaned_total_rows") if pyspark_res else 0,
         "indexed_chunks": doc_chunks
     }
@@ -830,9 +813,10 @@ class ProjectIndexRequest(BaseModel):
 
 
 def get_code_store():
-    """FastAPI dependency yielding the active PostgreSQL `code_rag` store."""
-    from project_init.store import PostgresCodeStore
-    return PostgresCodeStore()
+    """FastAPI dependency yielding the active Codebase RAG store (local unless cloud_index_allowed)."""
+    from backend.cloud.factories import get_code_store as _resolve_code_store
+
+    return _resolve_code_store()
 
 
 @app.get("/projects", status_code=status.HTTP_200_OK)
@@ -858,6 +842,7 @@ def list_projects_endpoint(store=Depends(get_code_store)):
                 "name": cfg.name,
                 "local_path": cfg.local_path,
                 "default_branch": cfg.default_branch,
+                "cloud_index_allowed": cfg.cloud_index_allowed,
                 "status": db_row.get("status", "database_unavailable" if db_error else "not_indexed"),
                 "last_commit_hash": db_row.get("last_commit_hash"),
                 "last_indexed_at": str(db_row["last_indexed_at"]) if db_row.get("last_indexed_at") else None,
@@ -964,9 +949,13 @@ def trigger_project_index_endpoint(
     from project_init.security import redact_secrets
 
     try:
-        get_project_config(name)
+        cfg = get_project_config(name)
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Project '{name}' not found.")
+
+    if not cfg.cloud_index_allowed and getattr(store, "backend_name", "local") == "gcp":
+        from project_init.store import PostgresCodeStore
+        store = PostgresCodeStore()
 
     incremental = payload.incremental if payload is not None else True
     try:
@@ -1003,9 +992,13 @@ def ask_project_codebase_endpoint(
     from project_init.security import redact_secrets
 
     try:
-        get_project_config(name)
+        cfg = get_project_config(name)
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Project '{name}' not found.")
+
+    if not cfg.cloud_index_allowed and getattr(store, "backend_name", "local") == "gcp":
+        from project_init.store import PostgresCodeStore
+        store = PostgresCodeStore()
 
     try:
         result = ask_codebase(

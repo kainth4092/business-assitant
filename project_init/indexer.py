@@ -131,7 +131,10 @@ def index_project(
     if not project_root.exists() or not project_root.is_dir():
         raise FileNotFoundError(f"Project path does not exist: {project_root}")
 
-    active_store = store or PostgresCodeStore()
+    from backend.cloud.config import cloud_allowed_scope
+    from backend.cloud.factories import get_code_store
+
+    active_store = store or get_code_store(project_name=cfg.name, config_path=config_path)
     active_store.ensure_schema()
 
     embed_fn = embedder or get_texts_embeddings
@@ -288,18 +291,20 @@ def index_project(
                 ch,
                 cache=summary_cache,
                 llm_summarizer=llm_summarizer,
+                cloud_allowed=cfg.cloud_index_allowed,
             )
             if not was_cached:
                 new_summaries[ch.content_hash] = ch.summary
         if new_summaries:
             active_store.save_cached_summaries(new_summaries)
 
-        # Compute embeddings in batch for safe chunks only
+        # Compute embeddings in batch for safe chunks only (respecting cloud_index_allowed)
         embed_inputs = [
             f"{ch.file_path} | {ch.symbol_name} | {ch.summary}\n{ch.content[:1800]}"
             for ch in safe_chunks
         ]
-        vectors = embed_fn(embed_inputs)
+        with cloud_allowed_scope(cfg.cloud_index_allowed):
+            vectors = embed_fn(embed_inputs)
 
         active_store.replace_file_chunks(
             project=cfg.name,

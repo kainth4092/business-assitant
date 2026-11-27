@@ -161,3 +161,27 @@ The project includes strict test isolation preventing any test from modifying pr
 cd frontend && npm run lint && npm run build
 ```
 Expected output: **100% PASS** with zero warnings and zero mock data.
+
+---
+
+## 8. Hybrid Google Cloud Mode (BigQuery, GCS, Vertex AI, BigQuery Vector Search)
+
+Fixdesk runs all application compute on your laptop while optionally delegating data, files, AI inference, and vector search to GCP:
+
+1. **Authenticate with ADC (no service-account JSON key files)**:
+   ```bash
+   gcloud auth application-default login
+   gcloud auth application-default set-quota-project YOUR_GCP_PROJECT_ID
+   ```
+2. **Generate print-only setup commands & inspect readiness**:
+   ```bash
+   .venv/bin/python scripts/gcp_setup.py --project-id YOUR_GCP_PROJECT_ID --bucket YOUR_BUCKET
+   .venv/bin/python scripts/gcp_inventory.py
+   ```
+3. **Configure `.env` switches**:
+   Set `STORAGE_BACKEND=gcp`, `VECTOR_BACKEND=gcp`, `FILE_STORE_BACKEND=gcp`, `LLM_BACKEND=vertexai`, `EMBEDDING_BACKEND=vertexai` (or keep any subset on `local`).
+4. **Cost & Privacy Protections**:
+   - BigQuery dry-run byte estimation + `BQ_MAX_BYTES_BILLED` (100 MiB default cap)
+   - Daily AI request/token budget tracking (`data/.budget_state.json`) surfaced in `/status` and UI banner
+   - `cloud_index_allowed: false` default in `projects.yaml` keeping private codebases local-only
+   - See [scripts/gcp_setup.md](scripts/gcp_setup.md), [COST_NOTES.md](COST_NOTES.md), and [CLEANUP.md](CLEANUP.md).

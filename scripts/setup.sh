@@ -53,8 +53,6 @@ echo "[3/6] Checking PostgreSQL database services..."
 if command -v docker &> /dev/null && docker info &> /dev/null; then
     if [ -f "infra/docker-compose.yml" ]; then
         docker compose -f infra/docker-compose.yml up -d 2>/dev/null || docker-compose -f infra/docker-compose.yml up -d 2>/dev/null || true
-    elif [ -f "docker-compose.yml" ]; then
-        docker compose up -d 2>/dev/null || docker-compose up -d 2>/dev/null || true
     fi
 fi
 

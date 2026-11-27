@@ -267,3 +267,18 @@
   - [x] Update HIGH-risk DB/Docker defaults cleanly for fresh installs + write `MIGRATION.md` for existing setups
   - [x] Add `tests/test_rename_guardrail.py` failing on any leftover old-name variant
   - [x] Run backend pytest, frontend lint/build/unit/Playwright tests, generate `RENAME_REPORT.md`, and verify end-to-end
+
+- [x] **Stage 21: Hybrid GCP Migration (BigQuery, GCS, Vertex AI, BigQuery Vector Search)**
+  - [x] Stage 0: Codebase audit, current SDK docs check, and architecture blueprint (`GCP_MIGRATION_PLAN.md`)
+  - [x] Stage 1: Storage & model abstraction layer (`SalesStore`, `VectorStore`, `FileStore`, `LlmClient`, `EmbeddingClient`)
+  - [x] Stage 2: ADC authentication helper without key files & least-privilege IAM guide
+  - [x] Stage 3: GCS `FileStore` (`raw/`, `clean/`, `docs/` US bucket)
+  - [x] Stage 4: Laptop PySpark ETL -> GCS Parquet -> BigQuery load + metadata/quality tables
+  - [x] Stage 5: BigQuery `SalesStore` (dry-run, bytes cap, parameterized read-only SQL) & `BQ_SANDBOX_DATASET`
+  - [x] Stage 6: Vertex AI `LlmClient` / `EmbeddingClient` + retry/backoff + daily budget UI warning
+  - [x] Stage 7: BigQuery `VectorStore` (`VECTOR INDEX` / `VECTOR_SEARCH`) for docs & code RAG + optional `DOCUMENT_RAG_BACKEND`
+  - [x] Stage 8: `projects.yaml` `cloud_index_allowed` privacy guard + secret-never-reaches-cloud tests
+  - [x] Stage 9: Cost safety docs (`COST_NOTES.md`, `CLEANUP.md`, resource inventory helper)
+  - [x] Stage 10: Print-only setup guide (`scripts/gcp_setup.md`), `.env.example`, `USAGE.md`, `ARCHITECTURE.md`, `EXPLAIN.md`, `INTERVIEW_QA.md`
+  - [x] Stage 11: Contract tests, GCP safety/privacy tests, full pytest + frontend build + Playwright suite
+  - [x] Stage 12: Live verification / `MIGRATION_REPORT.md` / `BLOCKED.md` (offline-verified; live GCP blocked on missing ADC/billing in `BLOCKED.md`)

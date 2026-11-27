@@ -38,13 +38,14 @@ def generate_chunk_summary(
     cache: Optional[Dict[str, str]] = None,
     llm_summarizer: Optional[Callable[[CodeChunk], str]] = None,
     use_llm: Optional[bool] = None,
+    cloud_allowed: bool = False,
 ) -> str:
     """
     Generate or retrieve from cache a one-line summary for `chunk`.
     Lookup order:
       1. In-memory / DB cache dict keyed by `chunk.content_hash`
       2. Explicit `llm_summarizer(chunk)` callback (if provided)
-      3. Gemini LLM (when GOOGLE_API_KEY is valid and CODE_RAG_LLM_SUMMARY=1)
+      3. Gemini LLM (when cloud_allowed=True, CODE_RAG_LLM_SUMMARY=1, and LLM is configured)
       4. Deterministic AST summary fallback
     """
     if cache is not None and chunk.content_hash in cache:
@@ -59,13 +60,16 @@ def generate_chunk_summary(
             summary = None
     else:
         should_call_llm = (
-            use_llm
+            bool(use_llm) and cloud_allowed
             if use_llm is not None
-            else (os.environ.get("CODE_RAG_LLM_SUMMARY", "0") == "1" and is_valid_gemini_key())
+            else (
+                cloud_allowed
+                and os.environ.get("CODE_RAG_LLM_SUMMARY", "0") == "1"
+            )
         )
         if should_call_llm:
             try:
-                llm = get_llm()
+                llm = get_llm(cloud_allowed=cloud_allowed)
                 if llm is not None:
                     safe_snippet = redact_secrets(chunk.content[:1500])
                     prompt = (

@@ -220,10 +220,14 @@ def propose_fix_node(state: SupportState) -> Dict[str, Any]:
             except Exception:
                 target_col = "category"
 
+        from backend.cloud.factories import get_sales_store
+        is_bq = get_sales_store().sql_dialect() == "bigquery"
+        col_ident = f"`{target_col}`" if is_bq else f'"{target_col}"'
+
         sql_patch = f"""
 UPDATE sales
-SET "{target_col}" = TRIM(UPPER("{target_col}"))
-WHERE "{target_col}" IS NOT NULL AND "{target_col}" != TRIM(UPPER("{target_col}"));
+SET {col_ident} = TRIM(UPPER({col_ident}))
+WHERE {col_ident} IS NOT NULL AND {col_ident} != TRIM(UPPER({col_ident}));
         """.strip()
 
         proposed_fix = {
@@ -318,7 +322,7 @@ def test_fix_node(state: SupportState) -> Dict[str, Any]:
     test_results = {
         "passed": passed,
         "retries_used": retry_count,
-        "sandbox_table": "sales_sandbox" if classification == "data_issue" else "demo_target",
+        "sandbox_table": preview_res.get("target_table", "sales_sandbox") if classification == "data_issue" else "demo_target",
         "details": preview_res
     }
 

@@ -34,3 +34,24 @@ Real channel listeners are implemented and ready to start automatically with the
 
 - `.env` already contains an active `GOOGLE_API_KEY` configured with `LLM_MODEL=gemini-3.5-flash-lite` and `EMBEDDING_MODEL=gemini-embedding-2`.
 - Keep `.env` strictly untracked (ignored by `.gitignore`) so credentials are never committed to Git.
+
+---
+
+### 3. Live GCP Verification (ADC, `GCP_PROJECT_ID`, `GCS_BUCKET`, and Billing Not Configured)
+- **What is blocked**: Neither `gcloud` CLI nor `~/.config/gcloud/application_default_credentials.json` is present in this environment, and `GCP_PROJECT_ID` / `GCS_BUCKET` are unset in `.env`. As a result, live calls to Cloud Storage, BigQuery, BigQuery Vector Search, and Vertex AI Gemini could not be executed here.
+- **What still works & is verified**: All GCP adapters (`backend/cloud/auth.py`, `backend/cloud/budget.py`, `backend/cloud/gcp_storage.py`, `backend/cloud/gcp_bigquery.py`, `backend/cloud/gcp_ai.py`, `backend/cloud/gcp_vector.py`), `google-cloud-bigquery==3.47.0`, `google-cloud-storage==3.17.2`, `google-genai==3.6.1`, `langchain-google-genai==4.5.1`, `google-auth==2.62.2`, contract tests, SQL/cost safety tests, privacy guard tests, and print-only setup/inventory scripts are implemented and verified offline.
+- **Exact commands for user to unblock live GCP mode**:
+  ```bash
+  # 1. Authenticate via ADC (never download service-account JSON key files)
+  gcloud auth login
+  gcloud config set project YOUR_GCP_PROJECT_ID
+  gcloud auth application-default login
+  gcloud auth application-default set-quota-project YOUR_GCP_PROJECT_ID
+
+  # 2. Generate & run provisioning commands (reviews APIs, US bucket, and BigQuery datasets)
+  .venv/bin/python scripts/gcp_setup.py --project-id YOUR_GCP_PROJECT_ID --bucket YOUR_UNIQUE_BUCKET
+
+  # 3. Set GCP_PROJECT_ID, GCS_BUCKET, and *_BACKEND=gcp in .env, then verify read-only inventory
+  .venv/bin/python scripts/gcp_inventory.py
+  ```
+  See [scripts/gcp_setup.md](scripts/gcp_setup.md), [COST_NOTES.md](COST_NOTES.md), and [CLEANUP.md](CLEANUP.md).

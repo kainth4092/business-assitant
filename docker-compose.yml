@@ -1,5 +1,0 @@
-# Root docker-compose shortcut referencing infra/docker-compose.yml
-# You can also run: docker compose -f infra/docker-compose.yml up -d
-
-include:
-  - infra/docker-compose.yml

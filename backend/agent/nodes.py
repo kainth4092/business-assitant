@@ -23,6 +23,9 @@ from backend.agent.prompts import (
     ANSWER_SYSTEM_PROMPT, CHECKER_SYSTEM_PROMPT
 )
 from backend.agent.tools import query_sales_tool, search_docs_tool, get_data_quality_report_tool
+from backend.cloud.budget import BudgetExceededError, check_budget_available, record_ai_usage
+from backend.cloud.config import is_valid_gemini_api_key
+from backend.cloud.factories import get_llm_client, get_sales_store
 from mcp_server.tools import query_sales, search_docs, get_data_quality_report, get_schema_metadata
 
 load_dotenv()
@@ -31,8 +34,7 @@ logger = logging.getLogger("AgentNodes")
 DEFAULT_LLM_MODEL = "gemini-3.5-flash-lite"
 
 def is_valid_gemini_key() -> bool:
-    key = os.environ.get("GOOGLE_API_KEY", "").strip()
-    return bool(key and not key.startswith("your_") and not key.startswith("mock_"))
+    return is_valid_gemini_api_key()
 
 def extract_text_content(content: Any) -> str:
     """Extracts plain text from either a string or Gemini 3.x list-of-blocks response content."""
@@ -57,22 +59,26 @@ def _parse_json_response(content: Any) -> Dict[str, Any]:
         text = text.split("```")[1].split("```")[0].strip()
     return json.loads(text)
 
-def get_llm():
-    """Returns Gemini Chat model instance if API key is configured."""
-    if is_valid_gemini_key():
-        from langchain_google_genai import ChatGoogleGenerativeAI
-        model_name = os.environ.get("LLM_MODEL", DEFAULT_LLM_MODEL).strip() or DEFAULT_LLM_MODEL
-        kwargs = {
-            "model": model_name,
-            "google_api_key": os.environ.get("GOOGLE_API_KEY"),
-            "max_retries": 1,
-            "timeout": 25.0,
-        }
-        # Gemini 3.x / 4.x models use fixed sampling defaults and warn if temperature=0.0 is passed
-        if not ("gemini-3" in model_name or "gemini-4" in model_name):
-            kwargs["temperature"] = 0.0
-        return ChatGoogleGenerativeAI(**kwargs)
-    return None
+def get_llm(cloud_allowed: bool = True):
+    """Returns active Gemini Chat model instance (Vertex AI via ADC or Gemini Developer API)."""
+    try:
+        client = get_llm_client(cloud_allowed=cloud_allowed)
+    except Exception as exc:
+        logger.warning(f"LLM client selection skipped: {exc}")
+        return None
+    if client is None:
+        return None
+    return client.get_chat_model()
+
+
+def _invoke_with_budget(llm_or_runnable: Any, messages: Any):
+    """Invoke a LangChain runnable while enforcing daily request/token budget accounting."""
+    check_budget_available()
+    resp = llm_or_runnable.invoke(messages)
+    in_chars = sum(len(str(m)) for m in messages) if isinstance(messages, list) else len(str(messages))
+    out_chars = len(str(getattr(resp, "content", resp)))
+    record_ai_usage(requests=1, input_chars=in_chars, output_chars=out_chars)
+    return resp
 
 # ==============================================================================
 # 1. ROUTER NODE
@@ -130,7 +136,7 @@ def router_node(state: AgentState) -> Dict[str, Any]:
     chosen_route = "docs"
     if llm:
         try:
-            response = llm.invoke([
+            response = _invoke_with_budget(llm, [
                 SystemMessage(content=ROUTER_SYSTEM_PROMPT),
                 HumanMessage(content=f"User Question: {query}")
             ])
@@ -157,47 +163,56 @@ def router_node(state: AgentState) -> Dict[str, Any]:
 # 2. AGENT NODE (Autonomous Tool Execution)
 # ==============================================================================
 def execute_sql_for_query(query: str) -> Dict[str, Any]:
-    """Generates and executes appropriate SQL based on user question and discovered schema."""
+    """Generates and executes dialect-aware SQL (PostgreSQL or BigQuery) from discovered schema."""
     meta = get_schema_metadata()
     cols = [c["name"] for c in meta.get("columns", [])]
     num_cols = meta.get("numeric_columns", [])
     cat_cols = meta.get("categorical_columns", [])
-    
+
     if not cols:
         return query_sales("SELECT * FROM sales LIMIT 5")
-        
+
     q = query.lower()
-    
+
     # Identify mentioned columns
     mentioned_cats = [c for c in cat_cols if c.replace("_", " ") in q or c in q]
     mentioned_nums = [c for c in num_cols if c.replace("_", " ") in q or c in q]
-    
+
     primary_cat = mentioned_cats[0] if mentioned_cats else (cat_cols[0] if cat_cols else cols[0])
     primary_num = mentioned_nums[0] if mentioned_nums else (num_cols[0] if num_cols else None)
-    
+
+    is_bq = get_sales_store().sql_dialect() == "bigquery"
+    cat_id = f"`{primary_cat}`" if is_bq else f'"{primary_cat}"'
+    num_id = f"`{primary_num}`" if (is_bq and primary_num) else (f'"{primary_num}"' if primary_num else None)
+
+    def _round_agg(fn_name: str, col_expr: str) -> str:
+        if is_bq:
+            return f"ROUND(CAST({fn_name}({col_expr}) AS NUMERIC), 2)"
+        return f"round({fn_name.lower()}({col_expr})::numeric, 2)"
+
     if "average" in q or "avg" in q:
-        if primary_num:
-            sql = f'SELECT "{primary_cat}", count(*) as count, round(avg("{primary_num}")::numeric, 2) as avg_{primary_num} FROM sales GROUP BY "{primary_cat}" ORDER BY avg_{primary_num} DESC LIMIT 5'
+        if num_id:
+            sql = f"SELECT {cat_id}, count(*) as count, {_round_agg('AVG', num_id)} as avg_{primary_num} FROM sales GROUP BY {cat_id} ORDER BY avg_{primary_num} DESC LIMIT 5"
         else:
-            sql = f'SELECT "{primary_cat}", count(*) as count FROM sales GROUP BY "{primary_cat}" ORDER BY count DESC LIMIT 5'
+            sql = f"SELECT {cat_id}, count(*) as count FROM sales GROUP BY {cat_id} ORDER BY count DESC LIMIT 5"
     elif "total" in q or "sum" in q or "revenue" in q:
-        if primary_num:
-            sql = f'SELECT "{primary_cat}", count(*) as count, round(sum("{primary_num}")::numeric, 2) as total_{primary_num} FROM sales GROUP BY "{primary_cat}" ORDER BY total_{primary_num} DESC LIMIT 5'
+        if num_id:
+            sql = f"SELECT {cat_id}, count(*) as count, {_round_agg('SUM', num_id)} as total_{primary_num} FROM sales GROUP BY {cat_id} ORDER BY total_{primary_num} DESC LIMIT 5"
         else:
-            sql = f'SELECT "{primary_cat}", count(*) as count FROM sales GROUP BY "{primary_cat}" ORDER BY count DESC LIMIT 5'
+            sql = f"SELECT {cat_id}, count(*) as count FROM sales GROUP BY {cat_id} ORDER BY count DESC LIMIT 5"
     elif "top" in q or "highest" in q:
-        if primary_num:
-            sql = f'SELECT "{primary_cat}", round(sum("{primary_num}")::numeric, 2) as total_{primary_num} FROM sales GROUP BY "{primary_cat}" ORDER BY total_{primary_num} DESC LIMIT 5'
+        if num_id:
+            sql = f"SELECT {cat_id}, {_round_agg('SUM', num_id)} as total_{primary_num} FROM sales GROUP BY {cat_id} ORDER BY total_{primary_num} DESC LIMIT 5"
         else:
-            sql = f'SELECT "{primary_cat}", count(*) as count FROM sales GROUP BY "{primary_cat}" ORDER BY count DESC LIMIT 5'
+            sql = f"SELECT {cat_id}, count(*) as count FROM sales GROUP BY {cat_id} ORDER BY count DESC LIMIT 5"
     elif "count" in q or "how many" in q:
-        sql = f'SELECT "{primary_cat}", count(*) as count FROM sales GROUP BY "{primary_cat}" ORDER BY count DESC LIMIT 5'
+        sql = f"SELECT {cat_id}, count(*) as count FROM sales GROUP BY {cat_id} ORDER BY count DESC LIMIT 5"
     else:
-        if primary_num:
-            sql = f'SELECT "{primary_cat}", count(*) as count, round(sum("{primary_num}")::numeric, 2) as total_{primary_num} FROM sales GROUP BY "{primary_cat}" ORDER BY total_{primary_num} DESC LIMIT 5'
+        if num_id:
+            sql = f"SELECT {cat_id}, count(*) as count, {_round_agg('SUM', num_id)} as total_{primary_num} FROM sales GROUP BY {cat_id} ORDER BY total_{primary_num} DESC LIMIT 5"
         else:
-            sql = f'SELECT "{primary_cat}", count(*) as count FROM sales GROUP BY "{primary_cat}" ORDER BY count DESC LIMIT 5'
-            
+            sql = f"SELECT {cat_id}, count(*) as count FROM sales GROUP BY {cat_id} ORDER BY count DESC LIMIT 5"
+
     return query_sales(sql)
 
 def agent_node(state: AgentState) -> Dict[str, Any]:
@@ -226,7 +241,7 @@ def agent_node(state: AgentState) -> Dict[str, Any]:
             meta = get_schema_metadata()
             cols_desc = "\n".join([f"- {c['name']} ({c['type']})" for c in meta.get("columns", [])])
             system_prompt = get_agent_system_prompt(cols_desc)
-            response = llm_with_tools.invoke([
+            response = _invoke_with_budget(llm_with_tools, [
                 SystemMessage(content=system_prompt),
                 HumanMessage(content=prompt_content)
             ])
@@ -332,7 +347,7 @@ def answer_node(state: AgentState) -> Dict[str, Any]:
                 f"Tools Executed & Raw Data:\n{context_str}\n\n"
                 "Please synthesize a clear, grounded answer citing sources explicitly."
             )
-            resp = llm.invoke([
+            resp = _invoke_with_budget(llm, [
                 SystemMessage(content=ANSWER_SYSTEM_PROMPT),
                 HumanMessage(content=prompt)
             ])
@@ -421,7 +436,7 @@ def check_node(state: AgentState) -> Dict[str, Any]:
                     f"Draft Answer:\n{draft}\n\n"
                     "Evaluate if the draft answer is grounded in the tool outputs."
                 )
-                resp = llm.invoke([
+                resp = _invoke_with_budget(llm, [
                     SystemMessage(content=CHECKER_SYSTEM_PROMPT),
                     HumanMessage(content=eval_prompt)
                 ])

@@ -89,13 +89,17 @@ def search_codebase(
     Hybrid search returning ranked snippets bounded strictly inside the project root
     and excluding any file matching the sensitive-file skip policy.
     """
+    from backend.cloud.config import cloud_allowed_scope
+    from backend.cloud.factories import get_code_store
+
     cfg = get_project_config(project, config_path=config_path)
     project_root = cfg.root_path
     gitignore_spec = load_gitignore_spec(project_root)
 
-    active_store = store or PostgresCodeStore()
+    active_store = store or get_code_store(project_name=cfg.name, config_path=config_path)
     embed_fn = embedder or get_text_embedding
-    q_vec = embed_fn(query)
+    with cloud_allowed_scope(cfg.cloud_index_allowed):
+        q_vec = embed_fn(query)
 
     raw_candidates = active_store.search_hybrid(project, query, q_vec, limit=max(top_k * 2, 12))
     reranked = _rerank_chunks(query, raw_candidates, top_k=top_k * 2)
@@ -155,7 +159,10 @@ def ask_codebase(
     Returns `"not found in the indexed code"` when evidence is absent or irrelevant.
     Applies `[REDACTED]` output scrubbing before returning.
     """
-    active_store = store or PostgresCodeStore()
+    from backend.cloud.factories import get_code_store
+
+    cfg = get_project_config(project, config_path=config_path)
+    active_store = store or get_code_store(project_name=cfg.name, config_path=config_path)
     clean_question = (question or "").strip()
     if not clean_question:
         return {
@@ -224,9 +231,9 @@ def ask_codebase(
 
     if llm_answerer is not None:
         answer_text = llm_answerer(clean_question, evidence_list)
-    elif is_valid_gemini_key():
+    elif cfg.cloud_index_allowed:
         try:
-            llm = get_llm()
+            llm = get_llm(cloud_allowed=cfg.cloud_index_allowed)
             if llm is not None:
                 context_blocks = []
                 for idx, ch in enumerate(evidence_list, 1):

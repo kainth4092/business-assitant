@@ -39,3 +39,13 @@ Project Init applies **five independent layers of defense**:
 - **Hybrid Search & Grounded Answers (`project_init/retriever.py`)**:
   - Queries combine `pgvector` HNSW cosine similarity (`<=>`) with PostgreSQL `tsvector` full-text ranking, path/symbol reranking, and structured `imports` JSONB queries.
   - `ask_codebase` answers strictly from retrieved chunks with `file_path:start_line-end_line` citations, or returns `"not found in the indexed code"` when unsupported.
+
+---
+
+## 4. Hybrid Cloud Mode (Laptop Compute + GCP Data, AI & Vector Services)
+
+Fixdesk keeps all interactive compute (Next.js UI, FastAPI, LangGraph, MCP tools, and local PySpark `master="local[*]"`) on the laptop while allowing each external dependency to switch independently to GCP via `backend/cloud/`:
+- **Files (`FILE_STORE_BACKEND=gcp`)**: `GcsFileStore` uploads/downloads CSVs (`raw/`), cleaned Parquet (`clean/`), and policy docs (`docs/`) in a US Cloud Storage bucket.
+- **Analytics & Support Sandbox (`STORAGE_BACKEND=gcp`)**: `BigQuerySalesStore` loads Parquet into `fixdesk.sales`, isolates Support Desk previews inside `fixdesk_sandbox.sales_sandbox`, enforces single-`SELECT` + `LIMIT <= 100` + dry-run byte checks + `BQ_MAX_BYTES_BILLED`, and keeps `support_tickets`/`audit_log` safely in local PostgreSQL.
+- **AI & Embeddings (`LLM_BACKEND=vertexai`, `EMBEDDING_BACKEND=vertexai`)**: Authenticates strictly via ADC (`google.auth.default()`, blocking service-account JSON key files), applies exponential backoff retries, and enforces daily request/token limits in `data/.budget_state.json`.
+- **Vector Search & Codebase Privacy (`VECTOR_BACKEND=gcp`)**: `BigQueryVectorStore` stores 768-D `ARRAY<FLOAT64>` vectors and queries with `VECTOR_SEARCH(..., distance_type => 'COSINE')`, while `cloud_index_allowed: false` in `projects.yaml` guarantees private codebases never leave the laptop unless explicitly enabled.

@@ -274,3 +274,21 @@ sequenceDiagram
 ## 7. Project Init (Codebase RAG) Architecture
 
 See [PHASE1_DESIGN.md](PHASE1_DESIGN.md) for the complete schema, AST chunking pipeline, incremental git-diff + content-hash tracker, defense-in-depth secret exclusion rules, hybrid pgvector HNSW + `tsvector` retrieval, read-only MCP tools (`list_projects`, `search_code`, `get_file_outline`, `find_symbol`), and FastAPI `/projects/*` endpoints stored cleanly inside the isolated `code_rag` PostgreSQL schema.
+
+---
+
+## 8. Hybrid Local / GCP Cloud Abstraction Layer (`backend/cloud/`)
+
+Fixdesk separates laptop application runtime (Next.js, FastAPI, LangGraph, MCP, local PySpark) from pluggable data, file, AI, and vector backends via narrow interfaces in `backend/cloud/interfaces.py`:
+
+| Interface | Local Implementation (`*_BACKEND=local`) | GCP Implementation (`*_BACKEND=gcp`) | Switching Env Flag |
+| :--- | :--- | :--- | :--- |
+| `SalesStore` | `PostgresSalesStore` (`sales`, `sales_sandbox`) | `BigQuerySalesStore` (`BQ_DATASET`, `BQ_SANDBOX_DATASET`) | `STORAGE_BACKEND` |
+| `VectorStore` | `PgVectorStore` (`document_embeddings`) | `BigQueryVectorStore` (`ARRAY<FLOAT64>`, `VECTOR_SEARCH`) | `VECTOR_BACKEND` |
+| `FileStore` | `LocalFileStore` (`data/`, `docs/`) | `GcsFileStore` (`gs://<GCS_BUCKET>/raw\|clean\|docs`) | `FILE_STORE_BACKEND` |
+| `LlmClient` | `GeminiApiLlmClient` (`GOOGLE_API_KEY`) | `VertexLlmClient` (`vertexai=True` + ADC) | `LLM_BACKEND` |
+| `EmbeddingClient` | `GeminiApiEmbeddingClient` (768-D + local fallback) | `VertexEmbeddingClient` (768-D via ADC) | `EMBEDDING_BACKEND` |
+
+- **Operational State**: `support_tickets`, `audit_log`, `conversations`, and `messages` remain in local PostgreSQL for zero-cost transactional HITL locking.
+- **Codebase Privacy Guard**: `projects.yaml` defaults `cloud_index_allowed: false` so repositories stay in local `PostgresCodeStore` unless explicitly opted in.
+- **Cost & Security**: ADC-only auth (`backend/cloud/auth.py` blocks service-account JSON key files), BigQuery dry-run byte gating (`BQ_MAX_BYTES_BILLED`), and daily AI request/token budget enforcement (`backend/cloud/budget.py`). See [GCP_MIGRATION_PLAN.md](GCP_MIGRATION_PLAN.md) and [COST_NOTES.md](COST_NOTES.md).

@@ -144,8 +144,6 @@ This dispatches three realistic client issues:
 2. **[Teams] Code Bug**: Inverted discount calculation in `demo_target/discount_calculator.py`.
 3. **[Webhook] Question**: Perishable return policy inquiry.
 
-For a full guided walkthrough, see [DEMO_SCRIPT.md](DEMO_SCRIPT.md).
-
 ---
 
 ### Project Init (Secret-Safe Codebase RAG)
@@ -186,8 +184,9 @@ Tests cover:
 
 ---
 
-## Cloud Deployment
+## Hybrid Google Cloud Architecture
 
-Comprehensive deployment blueprints and component mappings are provided:
-- [Google Cloud Platform Deployment Guide](docs/DEPLOY_GCP.md) (Cloud Run, Cloud SQL pgvector, Vertex AI, Dataproc)
-- [Amazon Web Services Deployment Guide](docs/DEPLOY_AWS.md) (ECS Fargate, RDS pgvector, Amazon Bedrock, AWS Glue)
+Fixdesk runs all application compute on your laptop (Next.js, FastAPI, LangGraph, MCP server, local PySpark) while optionally connecting to **Google Cloud Storage**, **BigQuery**, **BigQuery Vector Search**, and **Vertex AI Gemini**:
+- [Hybrid GCP Migration Plan](GCP_MIGRATION_PLAN.md)
+- [GCP Setup & Least-Privilege IAM Guide](scripts/gcp_setup.md)
+- [Cost Safety Notes](COST_NOTES.md) & [Cleanup Guide](CLEANUP.md)

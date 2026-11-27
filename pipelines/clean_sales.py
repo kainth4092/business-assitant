@@ -112,20 +112,34 @@ def run_sales_pipeline(
     """
     logger.info("Starting Universal Data Cleaning & Ingestion Pipeline...")
     
-    # 1. Locate input CSV
+    # 1. Locate input CSV (supports local data/ or gs://<bucket>/raw/ via FileStore)
+    from backend.cloud.factories import get_file_store, get_sales_store
+
+    file_store = get_file_store()
     if not input_csv:
         input_csv = find_input_csv("data")
-        
-    if not input_csv or not os.path.exists(input_csv):
+        if not input_csv and file_store.backend_name == "gcp":
+            remote_csvs = file_store.list_files("raw", extensions=(".csv",))
+            if remote_csvs:
+                input_csv = remote_csvs[0]
+
+    if not input_csv:
         raise FileNotFoundError(
-            "No CSV dataset found in /data. Please place a CSV file in /data to proceed."
+            "No CSV dataset found in /data or GCS raw/. Please place or upload a CSV file to proceed."
         )
-        
-    logger.info(f"Target dataset: {input_csv}")
+
+    dataset_filename = os.path.basename(input_csv)
+    local_csv_path = file_store.ensure_local_copy(input_csv)
+    if not os.path.exists(local_csv_path):
+        raise FileNotFoundError(
+            f"Input CSV dataset '{input_csv}' could not be located locally or downloaded."
+        )
+
+    logger.info(f"Target dataset: {input_csv} (local Spark path: {local_csv_path})")
     spark = create_spark_session()
-    
+
     # 2. Read with schema inference
-    raw_df = spark.read.csv(input_csv, header=True, inferSchema=True)
+    raw_df = spark.read.csv(local_csv_path, header=True, inferSchema=True)
     raw_total_rows = raw_df.count()
     raw_distinct_rows = raw_df.dropDuplicates().count()
     duplicate_rows_detected = raw_total_rows - raw_distinct_rows
@@ -239,7 +253,7 @@ def run_sales_pipeline(
     quality_report = {
         "status": "SUCCESS",
         "pipeline": "PySpark Universal CSV Cleaning & Quality Audit",
-        "input_dataset": os.path.basename(input_csv),
+        "input_dataset": dataset_filename,
         "records_profile": {
             "raw_total_rows": raw_total_rows,
             "duplicate_rows_removed": duplicate_rows_detected,
@@ -275,20 +289,27 @@ def run_sales_pipeline(
         json.dump(quality_report, f, indent=2)
     logger.info(f"Saved Data Quality Report to: {report_path}")
     
-    # 7. Write Parquet
+    # 7. Write Parquet locally & optionally upload to GCS clean/
     logger.info(f"Writing cleaned data to Parquet: {output_parquet}")
     clean_df.write.mode("overwrite").parquet(output_parquet)
-    
+
+    parquet_target = output_parquet
+    if file_store.backend_name == "gcp":
+        parquet_target = file_store.upload_from_local(
+            output_parquet, "clean", remote_name=os.path.basename(output_parquet)
+        )
+        logger.info(f"Uploaded cleaned Parquet to GCS: {parquet_target}")
+
     # 8. Extract Sample Rows & Metadata for Agent Prompt
     sample_rows = [row.asDict() for row in clean_df.limit(3).collect()]
     for r in sample_rows:
         for k, v in r.items():
             if not isinstance(v, (int, float, str, bool, type(None))):
                 r[k] = str(v)
-                
+
     schema_metadata = {
         "table_name": "sales",
-        "dataset_name": os.path.basename(input_csv),
+        "dataset_name": dataset_filename,
         "row_count": cleaned_total_rows,
         "columns": [
             {
@@ -303,132 +324,22 @@ def run_sales_pipeline(
         "categorical_columns": string_cols,
         "sample_rows": sample_rows
     }
-    
+
     os.makedirs(os.path.dirname(metadata_path), exist_ok=True)
     with open(metadata_path, "w", encoding="utf-8") as f:
         json.dump(schema_metadata, f, indent=2)
     logger.info(f"Saved Schema Metadata to: {metadata_path}")
-    
-    # 9. Dynamic PostgreSQL Table Creation & Loading
-    pg_host = os.environ.get("POSTGRES_HOST", "localhost")
-    pg_port = os.environ.get("POSTGRES_PORT", "5434")
-    pg_db = os.environ.get("POSTGRES_DB", "fixdesk")
-    pg_user = os.environ.get("POSTGRES_USER", "postgres")
-    pg_password = os.environ.get("POSTGRES_PASSWORD", "postgres_password")
-    
-    import psycopg2
-    from psycopg2.extras import execute_batch
-    
-    conn = psycopg2.connect(
-        host=pg_host,
-        port=int(pg_port),
-        dbname=pg_db,
-        user=pg_user,
-        password=pg_password
+
+    # 9. Persist cleaned sales, sandbox mirror, quality report, and schema metadata via SalesStore
+    sales_store = get_sales_store()
+    load_res = sales_store.load_sales_from_parquet(
+        parquet_uri_or_path=parquet_target,
+        schema_metadata=schema_metadata,
+        quality_report=quality_report,
+        df=clean_df,
     )
-    cursor = conn.cursor()
-    
-    # Construct DDL based on discovered columns
-    col_defs = ["id SERIAL PRIMARY KEY"]
-    for col in clean_df.columns:
-        pg_type = spark_to_postgres_type(clean_df.schema[col].dataType)
-        col_defs.append(f'"{col}" {pg_type}')
-    col_defs.append("created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP")
-    
-    create_table_sql = f"""
-        DROP TABLE IF EXISTS sales CASCADE;
-        CREATE TABLE sales (
-            {', '.join(col_defs)}
-        );
-        GRANT SELECT ON TABLE sales TO sales_readonly;
-    """
-    cursor.execute(create_table_sql)
-    conn.commit()
-    logger.info("Dynamically created PostgreSQL 'sales' table matching discovered schema.")
-    
-    # Batch Insert Records
-    raw_col_names = [f'"{c}"' for c in clean_df.columns]
-    placeholders = ["%s"] * len(clean_df.columns)
-    insert_sql = f"INSERT INTO sales ({', '.join(raw_col_names)}) VALUES ({', '.join(placeholders)});"
-    
-    records = []
-    for r in clean_df.collect():
-        row_vals = []
-        for c in clean_df.columns:
-            val = r[c]
-            if val is not None and isinstance(clean_df.schema[c].dataType, (DoubleType, FloatType)):
-                val = float(val)
-            row_vals.append(val)
-        records.append(tuple(row_vals))
-        
-    execute_batch(cursor, insert_sql, records, page_size=500)
-    conn.commit()
-    logger.info(f"Successfully loaded {len(records)} rows into PostgreSQL 'sales' table.")
-    
-    # Store quality report into quality_reports table
-    import uuid
-    report_id = f"qr_{uuid.uuid4().hex[:12]}"
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS quality_reports (
-            id SERIAL PRIMARY KEY,
-            report_id VARCHAR(64) UNIQUE NOT NULL,
-            raw_rows INT NOT NULL,
-            cleaned_rows INT NOT NULL,
-            duplicates_removed INT NOT NULL,
-            report_data JSONB NOT NULL,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        );
-        GRANT SELECT ON TABLE quality_reports TO sales_readonly;
-    """)
-    cursor.execute("""
-        INSERT INTO quality_reports (report_id, raw_rows, cleaned_rows, duplicates_removed, report_data)
-        VALUES (%s, %s, %s, %s, %s);
-    """, (
-        report_id,
-        raw_total_rows,
-        cleaned_total_rows,
-        duplicate_rows_detected,
-        json.dumps(quality_report)
-    ))
-    conn.commit()
+    logger.info(f"SalesStore ({sales_store.backend_name}) load completed: {load_res}")
 
-    # Recreate sales_sandbox matching newly created schema
-    cursor.execute("""
-        DROP TABLE IF EXISTS sales_sandbox CASCADE;
-        CREATE TABLE sales_sandbox (LIKE sales INCLUDING ALL);
-        INSERT INTO sales_sandbox SELECT * FROM sales;
-        GRANT SELECT ON TABLE sales_sandbox TO sales_readonly;
-    """)
-    conn.commit()
-
-    # Persist dynamic schema metadata and data dictionary to database
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS schema_metadata (
-            id SERIAL PRIMARY KEY,
-            dataset_name VARCHAR(255) NOT NULL,
-            table_name VARCHAR(255) NOT NULL DEFAULT 'sales',
-            row_count INT NOT NULL DEFAULT 0,
-            column_count INT NOT NULL DEFAULT 0,
-            columns_info JSONB NOT NULL DEFAULT '[]'::jsonb,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        );
-        GRANT SELECT ON TABLE schema_metadata TO sales_readonly;
-    """)
-    cursor.execute("""
-        INSERT INTO schema_metadata (dataset_name, table_name, row_count, column_count, columns_info)
-        VALUES (%s, %s, %s, %s, %s);
-    """, (
-        os.path.basename(input_csv),
-        "sales",
-        cleaned_total_rows,
-        len(clean_df.columns),
-        json.dumps(schema_metadata["columns"])
-    ))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    logger.info("Successfully persisted quality report and schema metadata to PostgreSQL.")
-    
     spark.stop()
     logger.info("Universal PySpark Pipeline completed successfully.")
     return quality_report

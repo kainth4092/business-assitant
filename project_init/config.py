@@ -19,6 +19,7 @@ class ProjectConfig:
     name: str
     local_path: str
     default_branch: str = "main"
+    cloud_index_allowed: bool = False
     include: List[str] = field(default_factory=list)
     exclude: List[str] = field(default_factory=list)
 
@@ -68,6 +69,7 @@ def load_projects_config(config_path: Optional[str] = None) -> List[ProjectConfi
                 name=name,
                 local_path=resolved,
                 default_branch=str(entry.get("default_branch", "main")).strip() or "main",
+                cloud_index_allowed=bool(entry.get("cloud_index_allowed", False)),
                 include=[str(g) for g in (entry.get("include") or [])],
                 exclude=[str(g) for g in (entry.get("exclude") or [])],
             )

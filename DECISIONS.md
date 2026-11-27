@@ -323,3 +323,14 @@ This log records all technical, architectural, and design decisions made for the
   - Default database, Docker container/volume/network names, `.env.example`, and test DB defaults (`fixdesk_test`) adopt `fixdesk` for fresh installs.
   - Existing local installations keep working via `.env` (`DATABASE_URL` / `READONLY_DATABASE_URL` / `POSTGRES_DB`) without silent destructive data renames, documented step-by-step in [MIGRATION.md](MIGRATION.md).
   - Enforced by automated rename guardrail tests in `tests/test_rename_guardrail.py`.
+
+---
+
+### Decision 26: Hybrid GCP Migration Architecture (Data, Storage, AI & Vector Search)
+- **Context**: Move heavy storage, analytics data, AI inference, and vector retrieval of Fixdesk onto Google Cloud Platform while keeping the web app, API server, LangGraph agents, MCP server, and local PySpark ETL on the developer laptop with zero cloud compute/VM hosting.
+- **Decision**:
+  1. **Unified Config-Driven Abstractions**: Define narrow interfaces (`SalesStore`, `VectorStore`, `FileStore`, `LlmClient`, `EmbeddingClient`) switched independently via environment variables (`STORAGE_BACKEND`, `VECTOR_BACKEND`, `FILE_STORE_BACKEND`, `LLM_BACKEND`, `EMBEDDING_BACKEND`, `DOCUMENT_RAG_BACKEND`).
+  2. **SDK & Auth Modernization**: Use `google-genai` (`3.6.x`) and `langchain-google-genai` (`4.5.x`) with `vertexai=True` and Application Default Credentials (`google-auth`) instead of deprecated Vertex SDKs or service account JSON keys.
+  3. **Audit Log & Operational State**: Keep `support_tickets` and `audit_log` transactional state locally in PostgreSQL while executing Support Desk data previews in BigQuery `BQ_SANDBOX_DATASET` when `STORAGE_BACKEND=gcp`, ensuring human-in-the-loop lock integrity without Cloud SQL cost.
+  4. **Codebase Privacy Guard**: Default `cloud_index_allowed: false` in `projects.yaml` so private repositories remain local-only unless explicitly opted in (and always filtered/redacted before any cloud call).
+  5. **Cost & Quota Protection**: Enforce US multi-region storage/datasets, BigQuery dry-run checks + `maximum_bytes_billed`, and local daily AI request/token budget tracking surfaced in the UI.

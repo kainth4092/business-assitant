@@ -5,6 +5,7 @@ projects:
   - name: fixdesk
     local_path: .
     default_branch: main
+    cloud_index_allowed: false
     include:
       - "**/*.py"
       - "**/*.js"
